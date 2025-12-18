@@ -100,6 +100,61 @@ export default function WritePrescription() {
     const { fields: testFields, append: addTest, remove: removeTest } = useFieldArray({ control, name: 'tests' })
     const { fields: adviceFields, append: addAdvice, remove: removeAdvice } = useFieldArray({ control, name: 'advice' })
 
+    // Age Composite State
+    const [ageNum, setAgeNum] = useState('')
+    const [ageUnit, setAgeUnit] = useState('Years')
+
+    // Sync simple age string to composite state (when loading patient)
+    const watchedAge = watch('age')
+    useEffect(() => {
+        if (!watchedAge) {
+            setAgeNum('')
+            return
+        }
+        // Try to parse "5 Months", "5 Years", "5"
+        const parts = watchedAge.split(' ')
+        if (parts.length >= 2) {
+            const num = parts[0]
+            const unit = parts.slice(1).join(' ') // "Years", "Months", "Days"
+            // check if unit is valid
+            if (['Years', 'Months', 'Days'].includes(unit)) {
+                setAgeNum(num)
+                setAgeUnit(unit)
+            } else {
+                setAgeNum(watchedAge) // Fallback
+                setAgeUnit('Years')
+            }
+        } else {
+            // Just a number or random string
+            setAgeNum(watchedAge)
+            // If it's just a number, assume years? Or keep current unit?
+            // Let's assume input "45" means 45 Years by default if unit is already Years
+        }
+    }, [watchedAge])
+
+    const updateAge = (num: string, unit: string) => {
+        setAgeNum(num)
+        setAgeUnit(unit)
+        if (num) {
+            setValue('age', `${num} ${unit}`)
+        } else {
+            setValue('age', '')
+        }
+    }
+
+    // Load cloned data on mount
+    useEffect(() => {
+        const state = (location as any).state as { cloneData?: any } | null
+        if (state?.cloneData) {
+            loadPatient(state.cloneData)
+            // Optional: clear state so it doesn't reload if user navigates back and forth?
+            // Actually nice to keep it if they accidentally went back.
+            // But we should reset the ID or something? 
+            // The `onSubmit` creates a NEW prescription, so we don't need to worry about ID.
+        }
+    }, [location])
+
+
     // Auto-search patients debounced
     useEffect(() => {
         // Close dropdown when clicking outside
@@ -277,13 +332,24 @@ export default function WritePrescription() {
                     </div>
                     <div>
                         <label className="block text-xs md:text-sm font-medium text-slate-700 mb-1">Age</label>
-
-                        <input
-                            {...register('age')}
-                            type="text"
-                            className="w-full h-10 md:h-11 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm md:text-base"
-                            placeholder="e.g. 45"
-                        />
+                        <div className="flex gap-2">
+                            <input
+                                value={ageNum}
+                                onChange={(e) => updateAge(e.target.value, ageUnit)}
+                                type="number"
+                                className="flex-1 w-full h-10 md:h-11 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm md:text-base"
+                                placeholder="0"
+                            />
+                            <select
+                                value={ageUnit}
+                                onChange={(e) => updateAge(ageNum, e.target.value)}
+                                className="w-24 h-10 md:h-11 px-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 text-sm md:text-base"
+                            >
+                                <option value="Years">Years</option>
+                                <option value="Months">Months</option>
+                                <option value="Days">Days</option>
+                            </select>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-xs md:text-sm font-medium text-slate-700 mb-1">Sex</label>
@@ -310,55 +376,67 @@ export default function WritePrescription() {
                         <div className="flex flex-wrap gap-2">
                             <button
                                 type="button"
-                                onClick={() => setValue('followUpDays', '5')}
+                                onClick={() => setValue('followUpDays', '১ দিন পরে আসবেন')}
                                 className={clsx(
                                     "px-3 py-2 text-sm rounded-md border transition-colors",
-                                    watch('followUpDays') === '5'
+                                    watch('followUpDays') === '১ দিন পরে আসবেন'
                                         ? "bg-teal-600 text-white border-teal-600"
                                         : "bg-white text-slate-700 border-slate-300 hover:border-teal-400"
                                 )}
                             >
-                                5 Days
+                                ১ দিন
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setValue('followUpDays', '7')}
+                                onClick={() => setValue('followUpDays', '২ দিন পরে আসবেন')}
                                 className={clsx(
                                     "px-3 py-2 text-sm rounded-md border transition-colors",
-                                    watch('followUpDays') === '7'
+                                    watch('followUpDays') === '২ দিন পরে আসবেন'
                                         ? "bg-teal-600 text-white border-teal-600"
                                         : "bg-white text-slate-700 border-slate-300 hover:border-teal-400"
                                 )}
                             >
-                                7 Days
+                                ২ দিন
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setValue('followUpDays', '15')}
+                                onClick={() => setValue('followUpDays', '৭ দিন পরে আসবেন')}
                                 className={clsx(
                                     "px-3 py-2 text-sm rounded-md border transition-colors",
-                                    watch('followUpDays') === '15'
+                                    watch('followUpDays') === '৭ দিন পরে আসবেন'
                                         ? "bg-teal-600 text-white border-teal-600"
                                         : "bg-white text-slate-700 border-slate-300 hover:border-teal-400"
                                 )}
                             >
-                                15 Days
+                                ৭ দিন
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setValue('followUpDays', '30')}
+                                onClick={() => setValue('followUpDays', '১৪ দিন পরে আসবেন')}
                                 className={clsx(
                                     "px-3 py-2 text-sm rounded-md border transition-colors",
-                                    watch('followUpDays') === '30'
+                                    watch('followUpDays') === '১৪ দিন পরে আসবেন'
                                         ? "bg-teal-600 text-white border-teal-600"
                                         : "bg-white text-slate-700 border-slate-300 hover:border-teal-400"
                                 )}
                             >
-                                1 Month
+                                ১৪ দিন
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setValue('followUpDays', '১ মাস পরে আসবেন')}
+                                className={clsx(
+                                    "px-3 py-2 text-sm rounded-md border transition-colors",
+                                    watch('followUpDays') === '১ মাস পরে আসবেন'
+                                        ? "bg-teal-600 text-white border-teal-600"
+                                        : "bg-white text-slate-700 border-slate-300 hover:border-teal-400"
+                                )}
+                            >
+                                ১ মাস
                             </button>
                             <input
                                 {...register('followUpDays')}
-                                type="number"
+                                type="text"
                                 className="w-28 h-10 px-3 border border-slate-300 rounded-lg"
                                 placeholder="Custom days"
                             />
@@ -398,7 +476,7 @@ export default function WritePrescription() {
                                     {...register(`diseases.${index}.days`)}
                                     type="text"
                                     className="w-24 h-10 px-3 border border-slate-300 rounded-md"
-                                    placeholder="Days"
+                                    placeholder="Duration"
                                 />
                                 <button type="button" onClick={() => removeDisease(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md">
                                     <Trash2 size={18} />
@@ -432,7 +510,7 @@ export default function WritePrescription() {
                                 <input
                                     {...register('weight')}
                                     className="w-full h-10 px-3 border border-slate-300 rounded-lg mt-1"
-                                    placeholder="kg"
+                                    placeholder="e.g. 10kg 500gm"
                                 />
                             </div>
                         </div>

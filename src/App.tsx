@@ -14,6 +14,7 @@ import AssistantDashboard from './pages/assistant/AssistantDashboard'
 import DoctorVideoDashboard from './pages/doctor/DoctorVideoDashboard'
 import DoctorReports from './pages/doctor/DoctorReports'
 import VideoCall from './pages/VideoCall'
+import History from './pages/History'
 
 const ProtectedRoute = ({ allowedRole }: { allowedRole?: 'doctor' | 'assistant' | 'patient' }) => {
   const { user, role, loading } = useAuth()
@@ -61,7 +62,7 @@ function App() {
               <Route path="/" element={<Navigate to="/write" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/write" element={<WritePrescription />} />
-              <Route path="/history" element={<div className="p-4">History (Coming Soon)</div>} />
+              <Route path="/history" element={<History />} />
               <Route path="/print/:id" element={<PrintPrescription />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/migrate" element={<AdminMigration />} />

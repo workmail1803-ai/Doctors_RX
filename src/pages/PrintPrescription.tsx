@@ -11,17 +11,31 @@ const Draggable = ({
     y,
     onDrag,
     enabled,
-    label
+    label,
+    onTouchMove,
+    onTouchEnd
 }: {
     children: React.ReactNode,
     x: number,
     y: number,
     onDrag: (dx: number, dy: number) => void,
     enabled: boolean,
-    label: string
+    label: string,
+    onTouchMove?: (x: number, y: number) => void,
+    onTouchEnd?: () => void
 }) => {
     const isDragging = useRef(false)
     const startPos = useRef({ x: 0, y: 0 })
+
+    // Use refs for callbacks to avoid stale closures in the effect
+    const onDragRef = useRef(onDrag)
+    const onTouchMoveRef = useRef(onTouchMove)
+    const onTouchEndRef = useRef(onTouchEnd)
+
+    // Update refs on every render
+    onDragRef.current = onDrag
+    onTouchMoveRef.current = onTouchMove
+    onTouchEndRef.current = onTouchEnd
 
     const getCoords = (e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
         if ('touches' in e) {
@@ -38,6 +52,11 @@ const Draggable = ({
         isDragging.current = true
         const coords = getCoords(e)
         startPos.current = coords
+
+        // Initial magnifier show
+        if ('touches' in e && onTouchMoveRef.current) {
+            onTouchMoveRef.current(e.touches[0].clientX, e.touches[0].clientY)
+        }
     }
 
     const handleMove = (e: MouseEvent | TouchEvent) => {
@@ -47,14 +66,20 @@ const Draggable = ({
         if (e.cancelable) e.preventDefault()
 
         const coords = getCoords(e)
+        // Call touch move callback with absolute coords
+        if ('touches' in e && onTouchMoveRef.current) {
+            onTouchMoveRef.current(coords.x, coords.y)
+        }
+
         const dx = coords.x - startPos.current.x
         const dy = coords.y - startPos.current.y
-        onDrag(dx, dy)
+        if (onDragRef.current) onDragRef.current(dx, dy)
         startPos.current = coords
     }
 
     const handleEnd = () => {
         isDragging.current = false
+        if (onTouchEndRef.current) onTouchEndRef.current()
     }
 
     useEffect(() => {
@@ -138,7 +163,7 @@ function PrescriptionBody({ data }: { data: Prescription }) {
                 {data.patient_info?.bp && (
                     <div className="mt-8 pt-4 border-t border-slate-100">
                         <p className="text-sm"><strong>BP:</strong> {data.patient_info.bp}</p>
-                        {data.patient_info.weight && <p className="text-sm"><strong>Weight:</strong> {data.patient_info.weight} kg</p>}
+                        {data.patient_info.weight && <p className="text-sm"><strong>Weight:</strong> {data.patient_info.weight} {/^\d+(\.\d+)?$/.test(data.patient_info.weight) ? 'kg' : ''}</p>}
                     </div>
                 )}
             </div>
@@ -175,6 +200,173 @@ function PrescriptionBody({ data }: { data: Prescription }) {
     )
 }
 
+// Separate component for the zoomed view
+// It essentially re-renders the visible layout but zoomed and clipped
+const DragMagnifier = ({
+    x,
+    y,
+    data,
+    layoutConfig,
+    templateUrl,
+    scale,
+    printableAreaRect // Pass the rect of the printable area
+}: {
+    x: number, // Client X for magnifier window position
+    y: number, // Client Y for magnifier window position
+    data: Prescription,
+    layoutConfig: LayoutConfig,
+    templateUrl: string | null,
+    scale: number,
+    printableAreaRect: DOMRect | null
+}) => {
+    // Zoom factor
+    const ZOOM = 2;
+    const SIZE = 140; // Size of the magnifier window
+
+    // Position the magnifier window relative to the touch point
+    const displayX = x - SIZE / 2;
+    const displayY = y - SIZE * 1.5; // shift up
+
+    // Calculate the content position within the magnifier
+    let pageX = 0;
+    let pageY = 0;
+
+    if (printableAreaRect) {
+        pageX = (x - printableAreaRect.left) / scale;
+        pageY = (y - printableAreaRect.top) / scale;
+    }
+
+    // Shift content so the point under finger (pageX, pageY) is at center of magnifier (SIZE/2, SIZE/2)
+    // We use left/top for translation to be safe from transform multiplication order issues
+    const contentLeft = (SIZE / 2) - (pageX * ZOOM);
+    const contentTop = (SIZE / 2) - (pageY * ZOOM);
+
+    return (
+        <div
+            className="fixed pointer-events-none z-[9999] overflow-hidden rounded-full border-4 border-teal-500 bg-white shadow-2xl"
+            style={{
+                left: displayX,
+                top: displayY,
+                width: SIZE,
+                height: SIZE,
+            }}
+        >
+            <div
+                style={{
+                    position: 'absolute',
+                    left: contentLeft,
+                    top: contentTop,
+                    width: '210mm',
+                    height: '297mm',
+                    transform: `scale(${ZOOM})`,
+                    transformOrigin: 'top left',
+                }}
+            >
+                {templateUrl && <img src={templateUrl} className="absolute inset-0 w-full h-full object-cover" alt="" />}
+
+                {/* Re-render Draggables statically */}
+                {layoutConfig && Object.entries(layoutConfig).map(([key, pos]: [string, any]) => {
+                    let content = null;
+
+                    switch (key) {
+                        case 'patient_name_el': content = <div className="text-lg font-bold">{data.patient_name}</div>; break;
+                        case 'age_el': content = <div className="font-medium">{data.patient_info?.age ? `${data.patient_info.age}${/^\d+(\.\d+)?$/.test(data.patient_info.age) ? 'Y' : ''}` : ''}</div>; break;
+                        case 'sex_el': content = <div className="font-medium">{data.patient_info?.sex}</div>; break;
+                        case 'date_el': content = <div className="font-medium">{new Date(data.created_at).toLocaleDateString()}</div>; break;
+                        case 'bp_el': content = data.patient_info?.bp ? <div className="text-sm font-medium">BP: {data.patient_info.bp}</div> : null; break;
+                        case 'weight_el': content = data.patient_info?.weight ? <div className="text-sm font-medium">Wt: {data.patient_info.weight} {/^\d+(\.\d+)?$/.test(data.patient_info.weight) ? 'kg' : ''}</div> : null; break;
+                        case 'examination_el': content = data.patient_info?.examination?.length ? <div className="text-sm max-w-[200px]"><strong>O/E:</strong> {data.patient_info.examination.join(', ')}</div> : null; break;
+                        case 'complaints_el': content = data.diseases?.length ? (
+                            <div className="max-w-[250px] min-h-[50px]">
+                                <div className="mb-4">
+                                    <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">C/C</h4>
+                                    <ul className="space-y-1 text-sm">
+                                        {data.diseases.map((d, i) => <li key={i}>&bull; {d.name} {d.days && <span className="text-slate-500">({d.days})</span>}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
+                        ) : null; break;
+                        case 'history_el': content = data.patient_info?.history && Object.entries(data.patient_info.history).some(([k, v]) => v && (data.patient_info.history_visibility as any)?.[k] !== false) ? (
+                            <div className="max-w-[250px] text-sm">
+                                <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">History</h4>
+                                {Object.entries(data.patient_info.history).map(([k, v]) => {
+                                    const isVisible = (data.patient_info.history_visibility as any)?.[k] !== false
+                                    return (v && isVisible) ? <div key={k}><span className="font-semibold">{k}:</span> {v}</div> : null
+                                })}
+                            </div>
+                        ) : null; break;
+                        case 'tests_el': content = data.tests?.length ? (
+                            <div className="max-w-[250px] min-h-[50px]">
+                                <div className="mb-4">
+                                    <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">Tests</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-sm">
+                                        {data.tests.map((t, i) => <li key={i}>{t.name}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
+                        ) : null; break;
+                        case 'diagnosis_el': content = data.patient_info?.provisional_diagnosis ? (
+                            <div className="max-w-[250px] text-sm">
+                                <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">Note</h4>
+                                <p>{data.patient_info.provisional_diagnosis}</p>
+                            </div>
+                        ) : null; break;
+                        case 'medicines_el': content = data.meds?.length ? (
+                            <div className="w-[400px] min-h-[50px]">
+                                <h2 className="font-serif text-3xl italic text-slate-800 mb-2 opacity-50">Rx</h2>
+                                <div className="space-y-4">
+                                    {data.meds.map((m, i) => (
+                                        <div key={i} className="mb-2">
+                                            <div className="font-bold text-base">{m.brand} <span className="text-sm font-normal text-slate-500 ml-1">{m.dosage}</span></div>
+                                            <div className="text-sm font-mono text-slate-600">{m.freq} — {m.duration}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null; break;
+                        case 'advice_el': content = data.advice ? (
+                            <div className="w-[400px]">
+                                <div>
+                                    <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">Advice</h4>
+                                    <p className="whitespace-pre-wrap text-sm">{data.advice}</p>
+                                </div>
+                            </div>
+                        ) : null; break;
+                        case 'follow_up_el': content = data.follow_up ? (
+                            <div className="text-sm font-medium">
+                                <strong className="text-slate-500 uppercase text-xs">Next Visit:</strong> {data.follow_up}
+                            </div>
+                        ) : null; break;
+                        case 'signature_el': content = (
+                            <div className="flex flex-col items-center">
+                                <div className="h-16 w-48 border-b border-slate-400 mb-1"></div>
+                                <div className="text-sm font-medium">Signature</div>
+                            </div>
+                        ); break;
+                    } // end switch
+
+                    if (!content) return null;
+
+                    return (
+                        <div
+                            key={key}
+                            style={{
+                                position: 'absolute',
+                                left: pos.x,
+                                top: pos.y,
+                                padding: '8px',
+                                border: '2px solid transparent'
+                            }}
+                        >
+                            {content}
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
 // Main Component
 export default function PrintPrescription() {
     const { id } = useParams()
@@ -189,6 +381,10 @@ export default function PrintPrescription() {
 
     // Scale for Mobile Responsiveness
     const [scale, setScale] = useState(1)
+
+    // Magnifier State
+    const [magnifier, setMagnifier] = useState<{ x: number, y: number, active: boolean }>({ x: 0, y: 0, active: false });
+    const printableAreaRef = useRef<HTMLDivElement>(null);
 
     // Defaults for absolute positioning
     const DEFAULTS: LayoutConfig = {
@@ -327,6 +523,19 @@ export default function PrintPrescription() {
         return { x: conf.x, y: conf.y }
     }
 
+    // Enhanced Drag Handler for Magnifier
+    const handleTouchDragUpdate = (clientX: number, clientY: number) => {
+        setMagnifier({
+            x: clientX,
+            y: clientY,
+            active: true
+        });
+    }
+
+    const handleTouchDragEnd = () => {
+        setMagnifier(prev => ({ ...prev, active: false }))
+    }
+
     if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>
     if (!data) return <div>No Data</div>
 
@@ -369,6 +578,17 @@ export default function PrintPrescription() {
             </style>
 
             {/* Control Bar (No Print) */}
+            {magnifier.active && data && layoutConfig && (
+                <DragMagnifier
+                    x={magnifier.x}
+                    y={magnifier.y}
+                    data={data}
+                    layoutConfig={layoutConfig}
+                    templateUrl={templateUrl}
+                    scale={scale}
+                    printableAreaRect={printableAreaRef.current?.getBoundingClientRect() || null}
+                />
+            )}
             <div className="print:hidden p-2 md:p-4 bg-slate-100 flex items-center justify-between border-b border-slate-200 sticky top-0 z-50 shadow-sm gap-2">
                 <div className="flex items-center gap-2 flex-shrink-0">
                     <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-slate-700 hover:text-slate-900 font-medium text-sm md:text-base">
@@ -416,6 +636,7 @@ export default function PrintPrescription() {
                 >
                     <div
                         id="printable-area"
+                        ref={printableAreaRef}
                         style={{
                             transform: scale !== 1 ? `scale(${scale})` : undefined,
                             transformOrigin: 'top left',
@@ -456,7 +677,7 @@ export default function PrintPrescription() {
                                     {/* Patient Info */}
                                     <div className="flex flex-wrap gap-x-8 gap-y-2 mb-6 border-b border-slate-300 pb-4 text-sm uppercase font-semibold text-slate-700">
                                         <div className="flex-1 min-w-[200px]">Name: <span className="text-black ml-1">{data.patient_name}</span></div>
-                                        <div>Age: <span className="text-black ml-1">{data.patient_info?.age}Y</span></div>
+                                        <div>Age: <span className="text-black ml-1">{data.patient_info?.age}{/^\d+(\.\d+)?$/.test(data.patient_info?.age || '') ? 'Y' : ''}</span></div>
                                         <div>Sex: <span className="text-black ml-1">{data.patient_info?.sex}</span></div>
                                         <div>Date: <span className="text-black ml-1">{new Date(data.created_at).toLocaleDateString()}</span></div>
                                     </div>
@@ -480,32 +701,39 @@ export default function PrintPrescription() {
                             {showCustomLayout && (
                                 <>
                                     {/* --- Header Info --- */}
-                                    <Draggable label="Name" enabled={isEditing} {...getPos('patient_name_el')} onDrag={(dx, dy) => handleDrag('patient_name_el', dx, dy)}>
+                                    <Draggable
+                                        label="Name"
+                                        enabled={isEditing}
+                                        {...getPos('patient_name_el')}
+                                        onDrag={(dx, dy) => handleDrag('patient_name_el', dx, dy)}
+                                        onTouchMove={handleTouchDragUpdate}
+                                        onTouchEnd={handleTouchDragEnd}
+                                    >
                                         <div className="text-lg font-bold">{data.patient_name}</div>
                                     </Draggable>
 
-                                    <Draggable label="Age" enabled={isEditing} {...getPos('age_el')} onDrag={(dx, dy) => handleDrag('age_el', dx, dy)}>
-                                        <div className="font-medium">{data.patient_info?.age ? `${data.patient_info.age}Y` : ''}</div>
+                                    <Draggable label="Age" enabled={isEditing} {...getPos('age_el')} onDrag={(dx, dy) => handleDrag('age_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
+                                        <div className="font-medium">{data.patient_info?.age ? `${data.patient_info.age}${/^\d+(\.\d+)?$/.test(data.patient_info.age) ? 'Y' : ''}` : ''}</div>
                                     </Draggable>
 
-                                    <Draggable label="Sex" enabled={isEditing} {...getPos('sex_el')} onDrag={(dx, dy) => handleDrag('sex_el', dx, dy)}>
+                                    <Draggable label="Sex" enabled={isEditing} {...getPos('sex_el')} onDrag={(dx, dy) => handleDrag('sex_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         <div className="font-medium">{data.patient_info?.sex}</div>
                                     </Draggable>
 
-                                    <Draggable label="Date" enabled={isEditing} {...getPos('date_el')} onDrag={(dx, dy) => handleDrag('date_el', dx, dy)}>
+                                    <Draggable label="Date" enabled={isEditing} {...getPos('date_el')} onDrag={(dx, dy) => handleDrag('date_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         <div className="font-medium">{new Date(data.created_at).toLocaleDateString()}</div>
                                     </Draggable>
 
                                     {/* --- Vitals --- */}
-                                    <Draggable label="BP" enabled={isEditing} {...getPos('bp_el')} onDrag={(dx, dy) => handleDrag('bp_el', dx, dy)}>
+                                    <Draggable label="BP" enabled={isEditing} {...getPos('bp_el')} onDrag={(dx, dy) => handleDrag('bp_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         {data.patient_info?.bp && <div className="text-sm font-medium">BP: {data.patient_info.bp}</div>}
                                     </Draggable>
 
-                                    <Draggable label="Weight" enabled={isEditing} {...getPos('weight_el')} onDrag={(dx, dy) => handleDrag('weight_el', dx, dy)}>
-                                        {data.patient_info?.weight && <div className="text-sm font-medium">Wt: {data.patient_info.weight} kg</div>}
+                                    <Draggable label="Weight" enabled={isEditing} {...getPos('weight_el')} onDrag={(dx, dy) => handleDrag('weight_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
+                                        {data.patient_info?.weight && <div className="text-sm font-medium">Wt: {data.patient_info.weight} {/^\d+(\.\d+)?$/.test(data.patient_info.weight) ? 'kg' : ''}</div>}
                                     </Draggable>
 
-                                    <Draggable label="Examination" enabled={isEditing} {...getPos('examination_el')} onDrag={(dx, dy) => handleDrag('examination_el', dx, dy)}>
+                                    <Draggable label="Examination" enabled={isEditing} {...getPos('examination_el')} onDrag={(dx, dy) => handleDrag('examination_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         {data.patient_info?.examination && data.patient_info.examination.length > 0 && (
                                             <div className="text-sm max-w-[200px]">
                                                 <strong>O/E:</strong> {data.patient_info.examination.join(', ')}
@@ -514,7 +742,7 @@ export default function PrintPrescription() {
                                     </Draggable>
 
                                     {/* --- Left Column Body --- */}
-                                    <Draggable label="Complaints" enabled={isEditing} {...getPos('complaints_el')} onDrag={(dx, dy) => handleDrag('complaints_el', dx, dy)}>
+                                    <Draggable label="Complaints" enabled={isEditing} {...getPos('complaints_el')} onDrag={(dx, dy) => handleDrag('complaints_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         <div className="max-w-[250px] min-h-[50px]">
                                             {data.diseases && data.diseases.length > 0 && (
                                                 <div className="mb-4">
@@ -529,7 +757,7 @@ export default function PrintPrescription() {
                                         </div>
                                     </Draggable>
 
-                                    <Draggable label="History" enabled={isEditing} {...getPos('history_el')} onDrag={(dx, dy) => handleDrag('history_el', dx, dy)}>
+                                    <Draggable label="History" enabled={isEditing} {...getPos('history_el')} onDrag={(dx, dy) => handleDrag('history_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         {data.patient_info?.history && Object.entries(data.patient_info.history).some(([k, v]) => v && (data.patient_info.history_visibility as any)?.[k] !== false) && (
                                             <div className="max-w-[250px] text-sm">
                                                 <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">History</h4>
@@ -545,7 +773,7 @@ export default function PrintPrescription() {
                                         )}
                                     </Draggable>
 
-                                    <Draggable label="Tests" enabled={isEditing} {...getPos('tests_el')} onDrag={(dx, dy) => handleDrag('tests_el', dx, dy)}>
+                                    <Draggable label="Tests" enabled={isEditing} {...getPos('tests_el')} onDrag={(dx, dy) => handleDrag('tests_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         <div className="max-w-[250px]">
                                             {data.tests && data.tests.length > 0 && (
                                                 <div className="mb-4">
@@ -560,7 +788,7 @@ export default function PrintPrescription() {
                                         </div>
                                     </Draggable>
 
-                                    <Draggable label="Notes / Diagnosis" enabled={isEditing} {...getPos('diagnosis_el')} onDrag={(dx, dy) => handleDrag('diagnosis_el', dx, dy)}>
+                                    <Draggable label="Notes / Diagnosis" enabled={isEditing} {...getPos('diagnosis_el')} onDrag={(dx, dy) => handleDrag('diagnosis_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         {data.patient_info?.provisional_diagnosis && (
                                             <div className="max-w-[250px] text-sm">
                                                 <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">Note</h4>
@@ -570,7 +798,7 @@ export default function PrintPrescription() {
                                     </Draggable>
 
                                     {/* --- Right Column Body --- */}
-                                    <Draggable label="Medicines (Rx)" enabled={isEditing} {...getPos('medicines_el')} onDrag={(dx, dy) => handleDrag('medicines_el', dx, dy)}>
+                                    <Draggable label="Medicines (Rx)" enabled={isEditing} {...getPos('medicines_el')} onDrag={(dx, dy) => handleDrag('medicines_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         <div className="w-[400px] min-h-[50px]">
                                             <h2 className="font-serif text-3xl italic text-slate-800 mb-2 opacity-50">Rx</h2>
                                             <div className="space-y-4">
@@ -584,7 +812,7 @@ export default function PrintPrescription() {
                                         </div>
                                     </Draggable>
 
-                                    <Draggable label="Advice" enabled={isEditing} {...getPos('advice_el')} onDrag={(dx, dy) => handleDrag('advice_el', dx, dy)}>
+                                    <Draggable label="Advice" enabled={isEditing} {...getPos('advice_el')} onDrag={(dx, dy) => handleDrag('advice_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         <div className="w-[400px]">
                                             {data.advice && (
                                                 <div>
@@ -595,7 +823,7 @@ export default function PrintPrescription() {
                                         </div>
                                     </Draggable>
 
-                                    <Draggable label="Follow Up" enabled={isEditing} {...getPos('follow_up_el')} onDrag={(dx, dy) => handleDrag('follow_up_el', dx, dy)}>
+                                    <Draggable label="Follow Up" enabled={isEditing} {...getPos('follow_up_el')} onDrag={(dx, dy) => handleDrag('follow_up_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         {data.follow_up && (
                                             <div className="text-sm font-medium">
                                                 <strong className="text-slate-500 uppercase text-xs">Next Visit:</strong> {data.follow_up}
@@ -604,7 +832,7 @@ export default function PrintPrescription() {
                                     </Draggable>
 
                                     {/* --- Footer --- */}
-                                    <Draggable label="Signature" enabled={isEditing} {...getPos('signature_el')} onDrag={(dx, dy) => handleDrag('signature_el', dx, dy)}>
+                                    <Draggable label="Signature" enabled={isEditing} {...getPos('signature_el')} onDrag={(dx, dy) => handleDrag('signature_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         <div className="flex flex-col items-center">
                                             <div className="h-16 w-48 border-b border-slate-400 mb-1"></div>
                                             <div className="text-sm font-medium">Signature</div>

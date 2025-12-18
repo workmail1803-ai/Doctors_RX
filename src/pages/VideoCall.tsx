@@ -260,10 +260,50 @@ export default function VideoCall() {
         navigate(-1)
     }
 
-    // copyToClipboard removed as it is no longer used in UI
+    // UI States
+    const [controlsVisible, setControlsVisible] = useState(true)
+    const [pipPosition, setPipPosition] = useState({ x: 20, y: 100 }) // Initial position (right-agnostic logic happens in CSS or calc)
+    const dragStartRef = useRef<{ x: number, y: number } | null>(null)
+
+    const handlePipDragStart = (e: React.TouchEvent | React.MouseEvent) => {
+        e.stopPropagation()
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+        dragStartRef.current = {
+            x: clientX - pipPosition.x,
+            y: clientY - pipPosition.y
+        }
+    }
+
+    const handlePipDragMove = (e: React.TouchEvent | React.MouseEvent) => {
+        if (!dragStartRef.current) return
+        e.stopPropagation()
+        e.preventDefault()
+
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+
+        setPipPosition({
+            x: clientX - dragStartRef.current.x,
+            y: clientY - dragStartRef.current.y
+        })
+    }
+
+    const handlePipDragEnd = () => {
+        dragStartRef.current = null
+    }
+
+    // Toggle controls on screen tap (but ignore if tapping active elements)
+    const handleScreenTap = () => {
+        // Simple toggle
+        setControlsVisible(prev => !prev)
+    }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] w-full bg-black relative overflow-hidden">
+        <div
+            className="flex flex-col h-[calc(100vh-64px)] w-full bg-black relative overflow-hidden"
+            onClick={handleScreenTap}
+        >
 
             {/* Main Remote Video - Full Screen Coverage */}
             <div className="absolute inset-0 z-0">
@@ -286,7 +326,9 @@ export default function VideoCall() {
             </div>
 
             {/* Top Bar - Floating */}
-            <div className="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start pointer-events-none">
+            <div
+                className={`absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start pointer-events-none transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
+            >
                 {/* Status Badge */}
                 <div className="pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${callActive ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
@@ -298,7 +340,7 @@ export default function VideoCall() {
                 {/* Doctor-Specific Actions & Exit */}
                 <div className="flex flex-col gap-3 items-end pointer-events-auto">
                     <button
-                        onClick={handleExit}
+                        onClick={(e) => { e.stopPropagation(); handleExit() }}
                         className="bg-red-500/80 hover:bg-red-600 text-white p-2 rounded-full backdrop-blur-md transition-transform active:scale-95 shadow-lg"
                         title="Exit Call"
                     >
@@ -308,7 +350,7 @@ export default function VideoCall() {
                     {isDoctor && (
                         <>
                             <button
-                                onClick={() => setShowHistoryModal(true)}
+                                onClick={(e) => { e.stopPropagation(); setShowHistoryModal(true) }}
                                 className="bg-white/90 hover:bg-white text-slate-800 px-4 py-2 rounded-full backdrop-blur-md transition-all shadow-lg flex items-center gap-2 text-sm font-medium"
                             >
                                 <FileText size={16} />
@@ -316,7 +358,7 @@ export default function VideoCall() {
                             </button>
 
                             <button
-                                onClick={() => setShowPrescriptionModal(true)}
+                                onClick={(e) => { e.stopPropagation(); setShowPrescriptionModal(true) }}
                                 className="bg-blue-600/90 hover:bg-blue-700 text-white px-4 py-2 rounded-full backdrop-blur-md transition-all shadow-lg flex items-center gap-2 text-sm font-medium"
                             >
                                 <Copy size={16} />
@@ -329,7 +371,7 @@ export default function VideoCall() {
 
             {/* Prescription Modal Overlay */}
             {showPrescriptionModal && (
-                <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in duration-200">
+                <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
                     <div className="w-full h-full md:max-w-4xl md:h-auto md:max-h-[90vh] bg-white rounded-none md:rounded-2xl overflow-hidden shadow-2xl relative flex flex-col">
 
                         {/* Mobile Close Button (Top Right) */}
@@ -354,7 +396,7 @@ export default function VideoCall() {
 
             {/* History Modal Overlay */}
             {showHistoryModal && (
-                <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in duration-200">
+                <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
                     <div className="w-full h-full md:max-w-md md:h-auto md:max-h-[80vh] bg-white rounded-none md:rounded-2xl overflow-hidden shadow-2xl relative flex flex-col">
                         <InCallHistory
                             onClose={() => setShowHistoryModal(false)}
@@ -365,24 +407,40 @@ export default function VideoCall() {
                 </div>
             )}
 
-            {/* Local Video - PiP (Floating) */}
-            {/* ... rest of existing JSX ... */}
-            <div className="absolute top-24 right-4 z-20 w-32 aspect-[3/4] md:w-48 md:aspect-video bg-slate-800 rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl">
+            {/* Local Video - PiP (Draggable) */}
+            <div
+                className="absolute z-30 w-32 aspect-[3/4] md:w-48 md:aspect-video bg-slate-800 rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl cursor-move touch-none"
+                style={{
+                    left: pipPosition.x,
+                    top: pipPosition.y,
+                    transition: dragStartRef.current ? 'none' : 'all 0.2s ease-out'
+                }}
+                onMouseDown={handlePipDragStart}
+                onTouchStart={handlePipDragStart}
+                onMouseMove={handlePipDragMove}
+                onTouchMove={handlePipDragMove}
+                onMouseUp={handlePipDragEnd}
+                onTouchEnd={handlePipDragEnd}
+                onMouseLeave={handlePipDragEnd}
+                onClick={(e) => e.stopPropagation()} // Prevent toggling controls when interacting with PIP
+            >
                 <video
                     ref={localVideoRef}
                     autoPlay
                     muted
-                    className="w-full h-full object-cover mirror"
+                    className="w-full h-full object-cover mirror pointer-events-none" // pointer-events-none ensures drag works on container
                     style={{ transform: 'scaleX(-1)' }}
                 />
-                <div className="absolute bottom-1 left-1 text-[10px] text-white/80 bg-black/40 px-1.5 py-0.5 rounded">
+                <div className="absolute bottom-1 left-1 text-[10px] text-white/80 bg-black/40 px-1.5 py-0.5 rounded pointer-events-none">
                     You
                 </div>
             </div>
 
             {/* Bottom Controls - Floating Pill */}
-            <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center pointer-events-none">
-                {/* ... existing controls ... */}
+            <div
+                className={`absolute bottom-6 left-0 right-0 z-30 flex justify-center pointer-events-none transition-all duration-300 ${controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="pointer-events-auto flex items-center gap-4 md:gap-6 bg-slate-900/80 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-full shadow-2xl">
 
                     <button

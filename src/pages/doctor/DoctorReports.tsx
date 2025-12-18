@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, Eye, User, Calendar, Search } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../components/AuthProvider'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../components/AuthProvider'
 
 type Report = {
     id: string

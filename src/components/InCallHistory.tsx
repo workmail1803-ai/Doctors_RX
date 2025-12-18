@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileText, Eye, Calendar, X, Pill } from 'lucide-react'
+import { FileText, X, Pill } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function InCallHistory({ patientId, onClose }: { patientId?: string, onClose: () => void }) {

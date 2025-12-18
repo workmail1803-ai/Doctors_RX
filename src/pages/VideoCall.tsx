@@ -27,12 +27,15 @@ export default function VideoCall() {
     const currentCall = useRef<any>(null)
     const localStreamRef = useRef<MediaStream | null>(null)
 
+    const [streamReady, setStreamReady] = useState(false)
+
     useEffect(() => {
         const peer = new Peer()
         peerInstance.current = peer
 
         // 1. Setup Peer
         peer.on('open', (id) => {
+            console.log('Peer Opened with ID:', id)
             setPeerId(id)
             setStatusText('Waiting for other party...')
             if (appointmentId && user) {
@@ -41,43 +44,45 @@ export default function VideoCall() {
         })
 
         peer.on('call', (call) => {
-            // Auto Answer if in same appointment context? 
-            // For now, let's keep manual answer or auto-answer if we can verify.
-            // Let's stick to manual answer for safety OR auto-answer if we trust the flow.
-            // Given the requirement "call will automatically begin", let's AUTO ANSWER.
+            console.log('Incoming Call received')
             setIncomingCall(call)
-            // answerCall(call) - requires stream to be ready. Logic handled in incomingCall effect?
-            // Better: Set it in state, then check if we have stream and answer immediately.
         })
 
         // 2. Get Media
+        console.log('Requesting User Media...')
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then((stream) => {
+                console.log('User Media retrieved successfully')
                 localStreamRef.current = stream
                 if (localVideoRef.current) {
                     localVideoRef.current.srcObject = stream
                 }
+                setStreamReady(true)
             })
             .catch((err) => {
                 console.error('Failed to get local stream', err)
                 setStatusText('Error accessing camera')
             })
 
-        // 3. Signaling Subscription (if appointmentId exists)
+        // 3. Signaling Subscription
         let channel: any;
         if (appointmentId) {
+            console.log('Subscribing to appointment channel:', appointmentId)
             channel = supabase.channel(`room-${appointmentId}`)
                 .on(
                     'postgres_changes',
                     { event: 'UPDATE', schema: 'public', table: 'appointments', filter: `id=eq.${appointmentId}` },
                     (payload) => {
+                        console.log('Realtime Update Received:', payload.new)
                         handleSignalingUpdate(payload.new)
                     }
                 )
-                .subscribe()
-
-            // Initial fetch to check if other party is already waiting
-            checkExistingPeer()
+                .subscribe((status) => {
+                    console.log('Subscription Status:', status)
+                    if (status === 'SUBSCRIBED') {
+                        checkExistingPeer()
+                    }
+                })
         }
 
         return () => {
@@ -86,18 +91,19 @@ export default function VideoCall() {
                 localStreamRef.current.getTracks().forEach(track => track.stop())
             }
             if (channel) supabase.removeChannel(channel)
-            // Optional: Remove ID from DB on exit?
         }
     }, [appointmentId, user])
 
     // Auto-Answer Effect
     useEffect(() => {
-        if (incomingCall && localStreamRef.current && !callActive) {
-            // Auto-answer
-            console.log('Auto-answering incoming call...')
-            incomingCall.answer(localStreamRef.current)
+        if (incomingCall && streamReady && localStreamRef.current && !callActive) {
+            console.log('Auto-answering call now that stream is ready...')
+            const stream = localStreamRef.current
+            incomingCall.answer(stream)
             currentCall.current = incomingCall
+
             incomingCall.on('stream', (remoteStream: MediaStream) => {
+                console.log('Remote stream received')
                 if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = remoteStream
                 }
@@ -105,49 +111,60 @@ export default function VideoCall() {
                 setStatusText('Connected')
             })
             setIncomingCall(null)
+        } else {
+            if (incomingCall && !streamReady) console.log('Incoming call waiting for stream...')
         }
-    }, [incomingCall])
+    }, [incomingCall, streamReady]) // Added streamReady dependency
 
     const updateSignalingId = async (id: string) => {
         if (!user || !appointmentId) return
 
-        // Determine if I am doctor or patient based on some logic or just update both?
-        // Better to know who I am. We can query the appointment or use profile.
-        // Quick hack: Update `doctor_peer_id` if I am the doctor_id in the row, else `patient_peer_id`.
-        // We'll fetch the appointment first to know our role in it.
-        const { data } = await supabase.from('appointments').select('*').eq('id', appointmentId).single()
+        console.log('Updating Signaling ID in DB...')
+        const { data, error: fetchError } = await supabase.from('appointments').select('*').eq('id', appointmentId).single()
+
+        if (fetchError) console.error('Error fetching appt for signaling:', fetchError)
 
         if (data) {
             const updates: any = {}
             if (user.id === data.doctor_id) updates.doctor_peer_id = id
             else if (user.id === data.patient_id) updates.patient_peer_id = id
 
+            console.log('Updating DB with:', updates)
             if (Object.keys(updates).length > 0) {
-                await supabase.from('appointments').update(updates).eq('id', appointmentId)
+                const { error } = await supabase.from('appointments').update(updates).eq('id', appointmentId)
+                if (error) console.error('Error updating peer ID:', error)
+                else console.log('Peer ID updated successfully')
             }
         }
     }
 
     const checkExistingPeer = async () => {
-        const { data } = await supabase.from('appointments').select('*').eq('id', appointmentId).single()
-        if (data) handleSignalingUpdate(data)
+        console.log('Checking for existing peer...')
+        const { data, error } = await supabase.from('appointments').select('*').eq('id', appointmentId).single()
+        if (error) console.error('Error checking existing peer:', error)
+        if (data) {
+            console.log('Initial appointment data loaded:', data)
+            handleSignalingUpdate(data)
+        }
     }
 
     const handleSignalingUpdate = (data: any) => {
         if (!user || !peerInstance.current) return
 
-        // Who am I?
         const isDoctor = user.id === data.doctor_id
+        console.log('Handle Signaling: I am', isDoctor ? 'Doctor' : 'Patient')
 
         const targetPeerId = isDoctor ? data.patient_peer_id : data.doctor_peer_id
+        console.log('Target Peer ID:', targetPeerId)
 
         if (targetPeerId && !currentCall.current && !incomingCall) {
-            console.log('Found target peer:', targetPeerId)
-            // If I am doctor, I call. If I am patient, I wait (or vice versa).
-            // Let's make Doctor the caller to avoid collision.
+            console.log('Conditions met to initiate call.')
             if (isDoctor) {
                 console.log('Initiating call to', targetPeerId)
                 startCall(targetPeerId)
+            } else {
+                console.log('I am patient, waiting for doctor to call me.')
+                setStatusText('Waiting for doctor to connect...')
             }
         }
     }

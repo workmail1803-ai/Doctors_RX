@@ -28,6 +28,7 @@ export default function VideoCall() {
     const localStreamRef = useRef<MediaStream | null>(null)
 
     const [streamReady, setStreamReady] = useState(false)
+    const [queuedRemoteId, setQueuedRemoteId] = useState<string | null>(null)
 
     useEffect(() => {
         const peer = new Peer()
@@ -116,6 +117,15 @@ export default function VideoCall() {
         }
     }, [incomingCall, streamReady]) // Added streamReady dependency
 
+    // Process Queued Call using new State
+    useEffect(() => {
+        if (streamReady && queuedRemoteId) {
+            console.log('Stream ready! Processing queued call to:', queuedRemoteId)
+            startCall(queuedRemoteId)
+            setQueuedRemoteId(null)
+        }
+    }, [streamReady, queuedRemoteId])
+
     const updateSignalingId = async (id: string) => {
         if (!user || !appointmentId) return
 
@@ -160,14 +170,30 @@ export default function VideoCall() {
         if (targetPeerId && !currentCall.current && !incomingCall) {
             console.log('Conditions met to initiate call.')
             if (isDoctor) {
-                console.log('Initiating call to', targetPeerId)
-                startCall(targetPeerId)
+                if (streamReady) {
+                    console.log('Stream ready, initiating call to', targetPeerId)
+                    startCall(targetPeerId)
+                } else {
+                    console.log('Stream NOT ready, queuing call to', targetPeerId)
+                    setQueuedRemoteId(targetPeerId)
+                }
             } else {
                 console.log('I am patient, waiting for doctor to call me.')
                 setStatusText('Waiting for doctor to connect...')
             }
         }
     }
+    /*
+    -- REQUIRED SQL FOR REALTIME SIGNALING --
+    -- Enable Realtime for table
+    alter publication supabase_realtime add table appointments;
+    
+    -- Allow Authenticated participants to update their Peer IDs
+    create policy "Participants update signaling" on appointments
+    for update using (
+      auth.uid() = patient_id or auth.uid() = doctor_id
+    );
+    */
 
     // ... existing startCall needs access to localStreamRef, which is already in scope 
     // but the defined startCall function in previous code might be separate. 

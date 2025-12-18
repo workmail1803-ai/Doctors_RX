@@ -94,3 +94,11 @@ CREATE INDEX IF NOT EXISTS idx_appointments_doctor_id ON appointments(doctor_id)
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
 CREATE INDEX IF NOT EXISTS idx_appointments_created_at ON appointments(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+
+-- 6. ENABLE REALTIME
+-- This is crucial for the video call signaling to work
+BEGIN;
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  CREATE PUBLICATION supabase_realtime;
+COMMIT;
+ALTER PUBLICATION supabase_realtime ADD TABLE appointments;

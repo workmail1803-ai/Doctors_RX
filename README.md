@@ -13,7 +13,14 @@ A modern, responsive, and efficient prescription management application designed
     -   **Mobile-Friendly Preview**: Auto-scaling A4 layout for mobile devices.
     -   **Drag-and-Drop Layout Editor**: Customize the position of every element to match your pre-printed slots.
     -   **PWA Support**: Installable as a native-like app on mobile and desktop.
--   **Patient History**: View and manage previous patient records.
+-   **Video Consultations (Telemedicine)**:
+    -   Integrated video calling with patient queue management.
+    -   **Premium Mobile UI**: Draggable Picture-in-Picture (PIP) self-view and tap-to-hide controls for an immersive experience.
+-   **Enhanced Prescription Writing**:
+    -   **Pediatric Friendly**: Flexible inputs for Age (Y/M/D), Weight, and granular complaint durations.
+    -   **Localization**: Built-in Bangla scripts for follow-up instructions and layout text.
+    -   **Smart History**: "Re-prescribe" button to clone past prescriptions instantly.
+-   **Patient History**: Searchable archive of all past visits and prescriptions.
 -   **Settings**: Manage prescription templates and account settings.
 
 ## Tech Stack

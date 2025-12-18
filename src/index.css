@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  --mobile-header-height: 4rem;
+  /* 64px */
+}
+
+/* Smooth scrolling for better UX */
+html {
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+/* Ensure form inputs and buttons have adequate touch targets on mobile */
+@media (max-width: 768px) {
+
+  input,
+  select,
+  textarea,
+  button {
+    min-height: 44px;
+  }
+
+  /* Utility for sticky elements that need to account for mobile header */
+  .sticky-mobile-safe {
+    top: var(--mobile-header-height);
+  }
+}
+
+@media (min-width: 1024px) {
+  .sticky-mobile-safe {
+    top: 0;
+  }
+}

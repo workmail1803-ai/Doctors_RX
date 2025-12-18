@@ -1,0 +1,67 @@
+# Rx Portal - Doctor Prescription Management System
+
+A modern, responsive, and efficient prescription management application designed for doctors. Built with React, TypeScript, Vite, Supabase, and Tailwind CSS.
+
+## Features
+
+-   **Dashboard**: Overview of patient statistics and quick actions.
+-   **Write Prescription**: Comprehensive interface for creating prescriptions with:
+    -   Patient History Autofill
+    -   Medicine Autosuggest (Local & Database)
+    -   Dynamic fields for Medicines, Tests, Advice, etc.
+-   **Print Studio**:
+    -   **Mobile-Friendly Preview**: Auto-scaling A4 layout for mobile devices.
+    -   **Drag-and-Drop Layout Editor**: Customize the position of every element to match your pre-printed slots.
+    -   **PWA Support**: Installable as a native-like app on mobile and desktop.
+-   **Patient History**: View and manage previous patient records.
+-   **Settings**: Manage prescription templates and account settings.
+
+## Tech Stack
+
+-   **Frontend**: React (v19), TypeScript, Vite
+-   **Styling**: Tailwind CSS (v4), Lucide React (Icons)
+-   **Backend**: Supabase (Auth, Database, RPC)
+-   **State/Forms**: React Hook Form
+-   **Deployment**: Vercel (PWA Configured)
+
+## Getting Started
+
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/workmail1803-ai/Doctors_RX.git
+    cd Doctors_RX
+    ```
+
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
+
+3.  **Environment Setup**:
+    Create a `.env.local` file in the root directory with your Supabase credentials:
+    ```env
+    VITE_SUPABASE_URL=your_supabase_url
+    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ```
+
+4.  **Run Development Server**:
+    ```bash
+    npm run dev
+    ```
+
+5.  **Build for Production**:
+    ```bash
+    npm run build
+    ```
+
+## Project Structure
+
+-   `src/components`: Reusable UI components (SmartInput, Sidebar, etc.)
+-   `src/pages`: Main application pages (WritePrescription, PrintPrescription, etc.)
+-   `src/data`: Local datasets (meds.ts)
+-   `src/lib`: Supabase client configuration
+-   `src/types`: TypeScript definitions
+
+## License
+
+Private / Proprietary.

@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 type AuthContextType = {
     session: Session | null
     user: User | null
-    role: 'doctor' | 'assistant' | null
+    role: 'doctor' | 'assistant' | 'patient' | null
     loading: boolean
     signOut: () => Promise<void>
 }
@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null)
     const [user, setUser] = useState<User | null>(null)
-    const [role, setRole] = useState<'doctor' | 'assistant' | null>(null)
+    const [role, setRole] = useState<'doctor' | 'assistant' | 'patient' | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (error) {
                 console.error('Error fetching role:', error)
             } else {
-                setRole(data?.role as 'doctor' | 'assistant')
+                setRole(data?.role as 'doctor' | 'assistant' | 'patient')
             }
         } finally {
             setLoading(false)

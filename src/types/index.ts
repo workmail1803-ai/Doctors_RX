@@ -1,3 +1,4 @@
+// Types Definition
 export interface Disease {
     name: string;
     days: string;
@@ -95,5 +96,15 @@ export interface PrescriptionTemplate {
     css_overrides?: string;
     layout_config?: LayoutConfig; // New field
     is_default?: boolean;
+    created_at: string;
+}
+
+export interface Appointment {
+    id: string;
+    patient_id: string;
+    doctor_id?: string;
+    status: 'pending' | 'approved' | 'rejected' | 'completed';
+    scheduled_at?: string;
+    meeting_link?: string;
     created_at: string;
 }

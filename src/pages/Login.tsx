@@ -7,6 +7,7 @@ export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [fullName, setFullName] = useState('')
+    const [role, setRole] = useState<'doctor' | 'patient' | 'assistant'>('doctor')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [isSignUp, setIsSignUp] = useState(false)
@@ -27,6 +28,7 @@ export default function Login() {
 
         try {
             let userId = ''
+            let userRole = role
 
             if (isSignUp) {
                 const { data, error } = await supabase.auth.signUp({
@@ -35,7 +37,7 @@ export default function Login() {
                     options: {
                         data: {
                             full_name: fullName,
-                            role: 'doctor', // Always doctor
+                            role: role,
                         }
                     }
                 })
@@ -56,12 +58,18 @@ export default function Login() {
                 if (error) throw error
                 if (data.user) {
                     userId = data.user.id
+                    // Fetch role to redirect correctly
+                    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single()
+                    if (profile) userRole = profile.role as any
                 }
             }
 
-            // Always redirect to write page for doctors
+            // Redirect based on role
             if (userId) {
-                navigate('/write')
+                if (userRole === 'doctor') navigate('/write') // Or /dashboard
+                else if (userRole === 'patient') navigate('/patient/dashboard')
+                else if (userRole === 'assistant') navigate('/assistant/dashboard')
+                else navigate('/write') // Fallback
             }
 
         } catch (err: unknown) {
@@ -106,10 +114,22 @@ export default function Login() {
                                     type="text"
                                     required
                                     className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                                    placeholder="Dr. Smith"
+                                    placeholder="John Doe"
                                     value={fullName}
                                     onChange={e => setFullName(e.target.value)}
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">I am a...</label>
+                                <select
+                                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-white"
+                                    value={role}
+                                    onChange={e => setRole(e.target.value as 'doctor' | 'patient' | 'assistant')}
+                                >
+                                    <option value="doctor">Doctor</option>
+                                    <option value="patient">Patient</option>
+                                    <option value="assistant">Assistant</option>
+                                </select>
                             </div>
                         </>
                     )}
@@ -120,7 +140,7 @@ export default function Login() {
                             type="email"
                             required
                             className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                            placeholder="doctor@clinic.com"
+                            placeholder="user@example.com"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                         />

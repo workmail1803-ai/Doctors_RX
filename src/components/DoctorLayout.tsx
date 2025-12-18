@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { FilePenLine, FileClock, LogOut, Menu, X, Pill, Settings } from 'lucide-react'
+import { FilePenLine, FileClock, LogOut, Menu, X, Pill, Settings, Video } from 'lucide-react'
 import { useAuth } from './AuthProvider'
 import clsx from 'clsx'
 
@@ -12,6 +12,7 @@ export default function DoctorLayout() {
     const navItems = [
         { to: '/write', label: 'Write Prescription', icon: FilePenLine },
         { to: '/history', label: 'History', icon: FileClock },
+        { to: '/video-call', label: 'Video Call', icon: Video }, // Added Video Call
         { to: '/settings', label: 'Settings', icon: Settings },
     ]
 

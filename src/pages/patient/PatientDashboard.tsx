@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Video, Calendar, Clock } from 'lucide-react'
 import { useAuth } from '../../components/AuthProvider'
+import PatientReports from '../../components/PatientReports'
 import { type Appointment } from '../../types'
 
 type DoctorProfile = {
@@ -74,6 +75,8 @@ export default function PatientDashboard() {
 
     return (
         <div className="space-y-6">
+            <PatientReports />
+
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                 <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                     <Video className="text-teal-600" />

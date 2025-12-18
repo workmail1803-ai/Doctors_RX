@@ -102,3 +102,72 @@ BEGIN;
   CREATE PUBLICATION supabase_realtime;
 COMMIT;
 ALTER PUBLICATION supabase_realtime ADD TABLE appointments;
+
+-- 7. PATIENT REPORTS TABLE
+CREATE TABLE IF NOT EXISTS patient_reports (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    patient_id UUID REFERENCES profiles(id) NOT NULL,
+    doctor_id UUID REFERENCES profiles(id), -- Optional: If sent to specific doctor
+    title TEXT NOT NULL,
+    file_url TEXT NOT NULL,
+    file_type TEXT, -- 'pdf', 'image', etc.
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for Reports
+CREATE INDEX IF NOT EXISTS idx_reports_patient_id ON patient_reports(patient_id);
+CREATE INDEX IF NOT EXISTS idx_reports_doctor_id ON patient_reports(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_reports_created_at ON patient_reports(created_at DESC);
+
+-- RLS for Reports
+ALTER TABLE patient_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Patients manage own reports" ON patient_reports;
+DROP POLICY IF EXISTS "Doctors view reports" ON patient_reports;
+
+CREATE POLICY "Patients manage own reports" ON patient_reports
+    USING (auth.uid() = patient_id)
+    WITH CHECK (auth.uid() = patient_id);
+
+CREATE POLICY "Doctors view reports" ON patient_reports
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'doctor')
+    );
+
+-- 8. UPDATE PRESCRIPTIONS (Link to Patient ID)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'prescriptions' AND column_name = 'patient_id') THEN
+        ALTER TABLE prescriptions ADD COLUMN patient_id UUID REFERENCES profiles(id);
+        CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_id ON prescriptions(patient_id);
+    END IF;
+END $$;
+
+-- Update Prescription RLS to allow Patients to view their own
+DROP POLICY IF EXISTS "Patients view own prescriptions" ON prescriptions;
+CREATE POLICY "Patients view own prescriptions" ON prescriptions
+    FOR SELECT USING (auth.uid() = patient_id);
+
+-- 9. STORAGE BUCKET & POLICIES
+-- Automatically create the 'reports' bucket if it doesn't exist
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('reports', 'reports', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage Policies (Secure Access)
+-- Allow Authenticated Users (Patients) to Upload
+CREATE POLICY "Patients upload reports" ON storage.objects
+    FOR INSERT WITH CHECK (
+        bucket_id = 'reports' AND
+        auth.role() = 'authenticated'
+    );
+
+-- Allow Authenticated Users (Doctors/Patients) to View/Download
+CREATE POLICY "Users view reports" ON storage.objects
+    FOR SELECT USING (
+        bucket_id = 'reports' AND
+        auth.role() = 'authenticated'
+    );
+

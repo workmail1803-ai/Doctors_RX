@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../components/AuthProvider'
 import Peer from 'peerjs'
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Copy, User, LogOut } from 'lucide-react'
+import { PhoneOff, Mic, MicOff, Video, VideoOff, Copy, User, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import PrescriptionForm from '../components/PrescriptionForm'
+import { X } from 'lucide-react'
 
 
 export default function VideoCall() {
@@ -12,7 +14,7 @@ export default function VideoCall() {
     const { user } = useAuth()
 
     const [peerId, setPeerId] = useState<string>('')
-    const [remotePeerIdValue, setRemotePeerIdValue] = useState('')
+    // Manual peer ID state removed
     const [callActive, setCallActive] = useState(false)
     const [incomingCall, setIncomingCall] = useState<any>(null)
     const [statusText, setStatusText] = useState('Initializing...')
@@ -29,6 +31,7 @@ export default function VideoCall() {
 
     const [streamReady, setStreamReady] = useState(false)
     const [queuedRemoteId, setQueuedRemoteId] = useState<string | null>(null)
+    const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
 
     useEffect(() => {
         const peer = new Peer()
@@ -245,6 +248,8 @@ export default function VideoCall() {
         }
     }
 
+    const isDoctor = user?.user_metadata?.role === 'doctor'
+
     const handleExit = () => {
         // Explicitly stop tracks before navigating
         if (localStreamRef.current) {
@@ -253,125 +258,136 @@ export default function VideoCall() {
         navigate(-1)
     }
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(peerId)
-        alert('ID copied to clipboard!')
-    }
+    // copyToClipboard removed as it is no longer used in UI
 
     return (
-        <div className="h-[calc(100vh-4rem)] flex flex-col bg-slate-900 rounded-xl overflow-hidden relative">
+        <div className="flex flex-col h-[calc(100vh-64px)] w-full bg-black relative overflow-hidden">
 
-            {/* Main Video Area */}
-            <div className="flex-1 relative flex items-center justify-center bg-black">
-                {/* Remote Video (Full Screen) */}
+            {/* Main Remote Video - Full Screen Coverage */}
+            <div className="absolute inset-0 z-0">
                 <video
                     ref={remoteVideoRef}
                     autoPlay
                     className="w-full h-full object-cover"
                 />
 
+                {/* Status Overlay (When not active) */}
                 {!callActive && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50">
-                        <User size={64} className="mb-4 opacity-50" />
-                        <p className="text-xl font-medium">{statusText}</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
+                        <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                            <User size={40} className="text-slate-400" />
+                        </div>
+                        <p className="text-xl md:text-2xl font-semibold text-white mb-2 text-center">{statusText}</p>
+                        <p className="text-slate-400 text-sm">{peerId ? 'Ready to connect' : 'Initializing...'}</p>
                     </div>
                 )}
+            </div>
 
-                {/* Local Video (PiP) */}
-                <div className="absolute top-4 right-4 w-48 aspect-video bg-slate-800 rounded-lg shadow-lg overflow-hidden border border-slate-700">
-                    <video
-                        ref={localVideoRef}
-                        autoPlay
-                        muted
-                        className="w-full h-full object-cover mirror"
-                        style={{ transform: 'scaleX(-1)' }}
-                    />
-                    <div className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
-                        You
-                    </div>
+            {/* Top Bar - Floating */}
+            <div className="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start pointer-events-none">
+                {/* Status Badge */}
+                <div className="pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${callActive ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
+                    <span className="text-white text-xs font-medium tracking-wide">
+                        {callActive ? 'Live Call' : 'Connecting...'}
+                    </span>
+                </div>
+
+                {/* Doctor-Specific Actions & Exit */}
+                <div className="flex flex-col gap-3 items-end pointer-events-auto">
+                    <button
+                        onClick={handleExit}
+                        className="bg-red-500/80 hover:bg-red-600 text-white p-2 rounded-full backdrop-blur-md transition-transform active:scale-95 shadow-lg"
+                        title="Exit Call"
+                    >
+                        <LogOut size={20} />
+                    </button>
+
+                    {isDoctor && (
+                        <button
+                            onClick={() => setShowPrescriptionModal(true)}
+                            className="bg-blue-600/90 hover:bg-blue-700 text-white px-4 py-2 rounded-full backdrop-blur-md transition-all shadow-lg flex items-center gap-2 text-sm font-medium"
+                        >
+                            <Copy size={16} />
+                            <span>Prescription</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Controls Bar */}
-            <div className="h-24 bg-slate-800 border-t border-slate-700 flex items-center justify-between px-8">
+            {/* Prescription Modal Overlay */}
+            {showPrescriptionModal && (
+                <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in duration-200">
+                    <div className="w-full h-full md:max-w-4xl md:h-auto md:max-h-[90vh] bg-white rounded-none md:rounded-2xl overflow-hidden shadow-2xl relative flex flex-col">
 
-                {/* Connection Info */}
-                <div className="text-white">
-                    <p className="text-xs text-slate-400 mb-1">Your Call ID</p>
-                    <div className="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded text-sm font-mono">
-                        {peerId || 'Generating...'}
-                        <button onClick={copyToClipboard} className="hover:text-teal-400 transition-colors">
-                            <Copy size={14} />
+                        {/* Mobile Close Button (Top Right) */}
+                        <button
+                            onClick={() => setShowPrescriptionModal(false)}
+                            className="absolute top-2 right-2 z-50 bg-slate-100 p-2 rounded-full md:hidden text-slate-500"
+                        >
+                            <X size={20} />
                         </button>
+
+                        <PrescriptionForm
+                            isModal={true}
+                            onCancel={() => setShowPrescriptionModal(false)}
+                            onSave={() => {
+                                setShowPrescriptionModal(false)
+                                // Optional: Send message to chat/signaling that Rx is ready
+                            }}
+                        />
                     </div>
                 </div>
+            )}
 
-                {/* Call Controls */}
-                <div className="flex items-center gap-4">
+            {/* Local Video - PiP (Floating) */}
+            {/* ... rest of existing JSX ... */}
+            <div className="absolute top-24 right-4 z-20 w-32 aspect-[3/4] md:w-48 md:aspect-video bg-slate-800 rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl">
+                <video
+                    ref={localVideoRef}
+                    autoPlay
+                    muted
+                    className="w-full h-full object-cover mirror"
+                    style={{ transform: 'scaleX(-1)' }}
+                />
+                <div className="absolute bottom-1 left-1 text-[10px] text-white/80 bg-black/40 px-1.5 py-0.5 rounded">
+                    You
+                </div>
+            </div>
+
+            {/* Bottom Controls - Floating Pill */}
+            <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center pointer-events-none">
+                {/* ... existing controls ... */}
+                <div className="pointer-events-auto flex items-center gap-4 md:gap-6 bg-slate-900/80 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-full shadow-2xl">
+
                     <button
                         onClick={toggleMic}
-                        className={`p-4 rounded-full transition-all ${micOn ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
-                        title={micOn ? "Mute Microphone" : "Unmute Microphone"}
+                        className={`p-3 md:p-4 rounded-full transition-all duration-200 ${micOn
+                            ? 'bg-slate-700 hover:bg-slate-600 text-white'
+                            : 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30'}`}
                     >
                         {micOn ? <Mic size={24} /> : <MicOff size={24} />}
                     </button>
 
                     <button
                         onClick={toggleCamera}
-                        className={`p-4 rounded-full transition-all ${cameraOn ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
-                        title={cameraOn ? "Turn Off Camera" : "Turn On Camera"}
+                        className={`p-3 md:p-4 rounded-full transition-all duration-200 ${cameraOn
+                            ? 'bg-slate-700 hover:bg-slate-600 text-white'
+                            : 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30'}`}
                     >
                         {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
                     </button>
 
-                    {callActive ? (
+                    {callActive && (
                         <button
                             onClick={endCall}
-                            className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/30"
-                            title="End Call"
+                            className="p-3 md:p-4 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/40 transition-transform hover:scale-105 active:scale-95"
                         >
                             <PhoneOff size={24} />
                         </button>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            {/* Only show manual input if NOT in appointment mode */}
-                            {!appointmentId && (
-                                <>
-                                    <input
-                                        type="text"
-                                        placeholder="Enter Peer ID"
-                                        className="bg-slate-700 border border-slate-600 text-white px-3 py-2 rounded-lg text-sm w-48 outline-none focus:border-teal-500"
-                                        value={remotePeerIdValue}
-                                        onChange={e => setRemotePeerIdValue(e.target.value)}
-                                    />
-                                    <button
-                                        onClick={() => startCall(remotePeerIdValue)}
-                                        disabled={!remotePeerIdValue}
-                                        className="p-3 rounded-full bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Start Call"
-                                    >
-                                        <Phone size={20} />
-                                    </button>
-                                </>
-                            )}
-                            {appointmentId && (
-                                <div className="text-white text-sm bg-slate-700 px-4 py-2 rounded-lg animate-pulse">
-                                    Auto-connecting...
-                                </div>
-                            )}
-                        </div>
                     )}
-                </div>
 
-                {/* Exit Button */}
-                <div className="w-48 flex justify-end">
-                    <button
-                        onClick={handleExit}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
-                    >
-                        <LogOut size={16} />
-                        Exit
-                    </button>
+                    {/* Manual Call Input removed for clean mobile UI */}
                 </div>
             </div>
         </div>

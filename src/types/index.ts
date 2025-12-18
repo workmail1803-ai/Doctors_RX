@@ -33,6 +33,7 @@ export interface PatientInfo {
     sex?: 'Male' | 'Female' | 'Other' | string;
     follow_up?: string;
     history?: History;
+    history_visibility?: { [key in keyof History]?: boolean };
     examination?: string[];
     provisional_diagnosis?: string;
     bp?: string;

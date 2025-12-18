@@ -530,10 +530,17 @@ export default function PrintPrescription() {
                                     </Draggable>
 
                                     <Draggable label="History" enabled={isEditing} {...getPos('history_el')} onDrag={(dx, dy) => handleDrag('history_el', dx, dy)}>
-                                        {data.patient_info?.history && Object.values(data.patient_info.history).some(h => h) && (
+                                        {data.patient_info?.history && Object.entries(data.patient_info.history).some(([k, v]) => v && (data.patient_info.history_visibility as any)?.[k] !== false) && (
                                             <div className="max-w-[250px] text-sm">
                                                 <h4 className="font-bold text-sm uppercase mb-1 text-slate-500">History</h4>
-                                                {Object.entries(data.patient_info.history).map(([k, v]) => v ? <div key={k}><span className="font-semibold">{k}:</span> {v}</div> : null)}
+                                                {Object.entries(data.patient_info.history).map(([k, v]) => {
+                                                    // Check visibility (default true)
+                                                    const isVisible = (data.patient_info.history_visibility as any)?.[k] !== false
+                                                    if (v && isVisible) {
+                                                        return <div key={k}><span className="font-semibold">{k}:</span> {v}</div>
+                                                    }
+                                                    return null
+                                                })}
                                             </div>
                                         )}
                                     </Draggable>

@@ -26,6 +26,7 @@ type FormData = {
     bp: string
     weight: string
     history: History
+    historyVisibility: { [key in keyof History]: boolean }
 }
 
 const EXAM_OPTIONS = [
@@ -86,6 +87,10 @@ export default function WritePrescription() {
             history: {
                 pastIllness: '', birthHistory: '', feedingHistory: '',
                 developmentHistory: '', treatmentHistory: '', familyHistory: ''
+            },
+            historyVisibility: {
+                pastIllness: true, birthHistory: true, feedingHistory: true,
+                developmentHistory: true, treatmentHistory: true, familyHistory: true
             }
         }
     })
@@ -93,8 +98,7 @@ export default function WritePrescription() {
     const { fields: diseaseFields, append: addDisease, remove: removeDisease } = useFieldArray({ control, name: 'diseases' })
     const { fields: medFields, append: addMed, remove: removeMed } = useFieldArray({ control, name: 'meds' })
     const { fields: testFields, append: addTest, remove: removeTest } = useFieldArray({ control, name: 'tests' })
-    // eslint-disable-next-line
-    const { fields: _adviceFields, append: _addAdvice, remove: _removeAdvice } = useFieldArray({ control, name: 'advice' })
+    const { fields: adviceFields, append: addAdvice, remove: removeAdvice } = useFieldArray({ control, name: 'advice' })
 
     // Auto-search patients debounced
     useEffect(() => {
@@ -141,7 +145,12 @@ export default function WritePrescription() {
         setValue('weight', p.patient_info?.weight || '') // Update if needed, or user can edit
 
         // Load History
-        if (p.patient_info?.history) setValue('history', p.patient_info.history)
+        if (p.patient_info?.history) {
+            setValue('history', p.patient_info.history)
+            if (p.patient_info.history_visibility) {
+                setValue('historyVisibility', p.patient_info.history_visibility)
+            }
+        }
 
         // Load Meds & Complaints if they exist (Clone previous Rx)
         if (p.meds && p.meds.length > 0) setValue('meds', p.meds)
@@ -163,6 +172,7 @@ export default function WritePrescription() {
                     sex: data.sex,
                     follow_up: data.followUpDays,
                     history: data.history,
+                    history_visibility: data.historyVisibility,
                     examination: data.examination,
                     provisional_diagnosis: data.provisionalDiagnosis,
                     bp: data.bp,
@@ -445,6 +455,42 @@ export default function WritePrescription() {
                     </div>
                 </SectionCard>
 
+                {/* History Section */}
+                <SectionCard
+                    title="History"
+                    isOpen={activeSection === 'history'}
+                    onToggle={() => setActiveSection(activeSection === 'history' ? '' : 'history')}
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                            { key: 'pastIllness', label: 'Past Illness' },
+                            { key: 'familyHistory', label: 'Family History' },
+                            { key: 'treatmentHistory', label: 'Treatment History' },
+                            { key: 'birthHistory', label: 'Birth History' },
+                            { key: 'feedingHistory', label: 'Feeding History' },
+                            { key: 'developmentHistory', label: 'Development History' }
+                        ].map((item: any) => (
+                            <div key={item.key} className="relative">
+                                <textarea
+                                    {...register(`history.${item.key}` as any)}
+                                    className="w-full h-20 p-3 border border-slate-300 rounded-lg text-sm"
+                                    placeholder={item.label}
+                                />
+                                <div className="absolute top-2 right-2">
+                                    <label className="flex items-center gap-1 bg-white/80 px-2 py-1 rounded text-xs cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            {...register(`historyVisibility.${item.key}` as any)}
+                                            className="rounded text-teal-600 focus:ring-teal-500"
+                                        />
+                                        <span className="text-slate-500 font-medium">Print</span>
+                                    </label>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </SectionCard>
+
                 {/* Treatment Section */}
                 <SectionCard
                     title="Treatment (Medicines)"
@@ -519,6 +565,31 @@ export default function WritePrescription() {
                         <button type="button" onClick={() => addMed({ brand: '', dosage: '', freq: '', duration: '' })} className="w-full py-3 md:py-4 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl hover:border-teal-500 hover:text-teal-600 font-medium transition-colors flex flex-col items-center justify-center gap-1 text-sm md:text-base">
                             <Plus size={20} className="md:w-6 md:h-6" />
                             Add Medicine
+                        </button>
+                    </div>
+                </SectionCard>
+
+                {/* Advice Section */}
+                <SectionCard
+                    title="Advice"
+                    isOpen={activeSection === 'advice'}
+                    onToggle={() => setActiveSection(activeSection === 'advice' ? '' : 'advice')}
+                >
+                    <div className="space-y-3">
+                        {adviceFields.map((field, index) => (
+                            <div key={field.id} className="flex gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                <input
+                                    {...register(`advice.${index}.text`)}
+                                    className="w-full h-10 px-3 border border-slate-300 rounded-md"
+                                    placeholder="Advice"
+                                />
+                                <button type="button" onClick={() => removeAdvice(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md">
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        ))}
+                        <button type="button" onClick={() => addAdvice({ text: '' })} className="flex items-center gap-2 text-teal-600 font-medium px-2 py-1 hover:bg-teal-50 rounded-lg">
+                            <Plus size={18} /> Add Advice
                         </button>
                     </div>
                 </SectionCard>

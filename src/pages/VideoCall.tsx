@@ -159,6 +159,30 @@ export default function VideoCall() {
         if (error) console.error('Error checking existing peer:', error)
         if (data) {
             console.log('Initial appointment data loaded:', data)
+
+            // TIMING ENFORCEMENT
+            if (data.scheduled_at) {
+                const now = new Date().getTime()
+                const start = new Date(data.scheduled_at).getTime()
+                const slotDuration = 30 * 60 * 1000
+                const end = start + slotDuration
+
+                // Allow 10 min early join
+                const earlyBuffer = 10 * 60 * 1000
+
+                if (now > end) {
+                    alert('This appointment slot has expired (30 min limit).')
+                    navigate(-1)
+                    return
+                }
+
+                if (now < (start - earlyBuffer)) {
+                    alert('It is too early to join this call. Please wait for your scheduled time.')
+                    navigate(-1)
+                    return
+                }
+            }
+
             handleSignalingUpdate(data)
         }
     }

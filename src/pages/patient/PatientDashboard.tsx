@@ -10,6 +10,7 @@ type DoctorProfile = {
     id: string
     full_name: string
     clinic_details: any
+    avatar_url?: string
 }
 
 export default function PatientDashboard() {
@@ -84,9 +85,18 @@ export default function PatientDashboard() {
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {doctors.map(doc => (
-                        <div key={doc.id} className="p-4 border border-slate-200 rounded-lg hover:shadow-md transition-shadow">
+                        <div key={doc.id} className="p-4 border border-slate-200 rounded-lg hover:shadow-md transition-shadow flex flex-col items-center text-center">
+                            <div className="w-20 h-20 rounded-full bg-slate-100 mb-3 overflow-hidden">
+                                {doc.avatar_url ? (
+                                    <img src={doc.avatar_url} alt={doc.full_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-2xl">
+                                        {doc.full_name?.[0] || 'D'}
+                                    </div>
+                                )}
+                            </div>
                             <h3 className="font-semibold text-lg">{doc.full_name || 'Unknown Doctor'}</h3>
-                            <p className="text-sm text-slate-500 mb-4">General Practice</p>
+                            <p className="text-sm text-slate-500 mb-4">{doc.clinic_details?.bio || 'General Practice'}</p>
                             <button
                                 onClick={() => requestAppointment(doc.id)}
                                 className="w-full py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
@@ -136,6 +146,21 @@ export default function PatientDashboard() {
                                     const minutesWait = Math.ceil(diff / 60000)
 
                                     console.log(`App ${app.id}: Scheduled: ${scheduled.toISOString()}, Now: ${currentTime.toISOString()}, isTooEarly: ${isTooEarly}`)
+
+                                    // 30 minute slot
+                                    const slotDuration = 30 * 60 * 1000
+                                    const endTime = new Date(scheduled.getTime() + slotDuration)
+                                    const isExpired = currentTime.getTime() > endTime.getTime()
+
+                                    console.log(`App ${app.id}: Ends: ${endTime.toISOString()}, Expired: ${isExpired}`)
+
+                                    if (isExpired) {
+                                        return (
+                                            <button disabled className="px-4 py-2 bg-red-50 text-red-400 text-sm rounded-lg cursor-not-allowed inline-block text-center min-w-[120px] font-medium border border-red-100">
+                                                Call Not Available
+                                            </button>
+                                        )
+                                    }
 
                                     if (isTooEarly) {
                                         return (

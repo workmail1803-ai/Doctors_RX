@@ -15,6 +15,7 @@ import DoctorVideoDashboard from './pages/doctor/DoctorVideoDashboard'
 import DoctorReports from './pages/doctor/DoctorReports'
 import VideoCall from './pages/VideoCall'
 import History from './pages/History'
+import DoctorProfile from './pages/doctor/DoctorProfile'
 
 const ProtectedRoute = ({ allowedRole }: { allowedRole?: 'doctor' | 'assistant' | 'patient' }) => {
   const { user, role, loading } = useAuth()
@@ -68,6 +69,7 @@ function App() {
               <Route path="/migrate" element={<AdminMigration />} />
               <Route path="/video-call" element={<DoctorVideoDashboard />} />
               <Route path="/reports" element={<DoctorReports />} />
+              <Route path="/profile" element={<DoctorProfile />} />
             </Route>
           </Route>
 

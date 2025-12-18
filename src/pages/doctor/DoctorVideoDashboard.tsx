@@ -8,6 +8,12 @@ export default function DoctorVideoDashboard() {
     const { user } = useAuth()
     const [appointments, setAppointments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [currentTime, setCurrentTime] = useState(new Date())
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 30000)
+        return () => clearInterval(timer)
+    }, [])
 
     useEffect(() => {
         if (user) fetchAppointments()
@@ -61,8 +67,8 @@ export default function DoctorVideoDashboard() {
                                                 {app.profiles?.full_name || 'Patient'}
                                             </h3>
                                             <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${app.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                                    app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                        'bg-slate-100 text-slate-600'
+                                                app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-slate-100 text-slate-600'
                                                 }`}>
                                                 {app.status}
                                             </span>
@@ -83,13 +89,47 @@ export default function DoctorVideoDashboard() {
                                 </div>
 
                                 {app.status === 'approved' ? (
-                                    <Link
-                                        to={`/video-call/${app.id}`}
-                                        className="px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2"
-                                    >
-                                        <Video size={18} />
-                                        Join Call
-                                    </Link>
+                                    (() => {
+                                        if (!app.scheduled_at) return (
+                                            <Link to={`/video-call/${app.id}`} className="px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2">
+                                                <Video size={18} /> Join Call (Anytime)
+                                            </Link>
+                                        )
+
+                                        const scheduled = new Date(app.scheduled_at)
+                                        const endTime = new Date(scheduled.getTime() + 30 * 60 * 1000)
+                                        const isExpired = currentTime.getTime() > endTime.getTime()
+
+                                        // Optional: Doctor can verify earlier, but patient cannot? 
+                                        // Usually doctor should be able to join 5 mins early.
+                                        const isTooEarly = currentTime.getTime() < (scheduled.getTime() - 5 * 60 * 1000)
+
+                                        if (isExpired) {
+                                            return (
+                                                <button disabled className="px-6 py-2.5 bg-red-50 text-red-400 border border-red-100 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
+                                                    <Video size={18} /> Call Expired
+                                                </button>
+                                            )
+                                        }
+
+                                        if (isTooEarly) {
+                                            return (
+                                                <button disabled className="px-6 py-2.5 bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
+                                                    <Clock size={18} /> Wait for time
+                                                </button>
+                                            )
+                                        }
+
+                                        return (
+                                            <Link
+                                                to={`/video-call/${app.id}`}
+                                                className="px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2 animate-pulse"
+                                            >
+                                                <Video size={18} />
+                                                Join Call
+                                            </Link>
+                                        )
+                                    })()
                                 ) : (
                                     <button disabled className="px-6 py-2.5 bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
                                         <Video size={18} />

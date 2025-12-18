@@ -5,7 +5,8 @@ import Peer from 'peerjs'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Copy, User, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import PrescriptionForm from '../components/PrescriptionForm'
-import { X } from 'lucide-react'
+import InCallHistory from '../components/InCallHistory'
+import { X, FileText } from 'lucide-react'
 
 
 export default function VideoCall() {
@@ -32,6 +33,7 @@ export default function VideoCall() {
     const [streamReady, setStreamReady] = useState(false)
     const [queuedRemoteId, setQueuedRemoteId] = useState<string | null>(null)
     const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
+    const [showHistoryModal, setShowHistoryModal] = useState(false)
 
     useEffect(() => {
         const peer = new Peer()
@@ -304,13 +306,23 @@ export default function VideoCall() {
                     </button>
 
                     {isDoctor && (
-                        <button
-                            onClick={() => setShowPrescriptionModal(true)}
-                            className="bg-blue-600/90 hover:bg-blue-700 text-white px-4 py-2 rounded-full backdrop-blur-md transition-all shadow-lg flex items-center gap-2 text-sm font-medium"
-                        >
-                            <Copy size={16} />
-                            <span>Prescription</span>
-                        </button>
+                        <>
+                            <button
+                                onClick={() => setShowHistoryModal(true)}
+                                className="bg-white/90 hover:bg-white text-slate-800 px-4 py-2 rounded-full backdrop-blur-md transition-all shadow-lg flex items-center gap-2 text-sm font-medium"
+                            >
+                                <FileText size={16} />
+                                <span>History</span>
+                            </button>
+
+                            <button
+                                onClick={() => setShowPrescriptionModal(true)}
+                                className="bg-blue-600/90 hover:bg-blue-700 text-white px-4 py-2 rounded-full backdrop-blur-md transition-all shadow-lg flex items-center gap-2 text-sm font-medium"
+                            >
+                                <Copy size={16} />
+                                <span>Prescription</span>
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -335,6 +347,19 @@ export default function VideoCall() {
                                 setShowPrescriptionModal(false)
                                 // Optional: Send message to chat/signaling that Rx is ready
                             }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* History Modal Overlay */}
+            {showHistoryModal && (
+                <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in duration-200">
+                    <div className="w-full h-full md:max-w-md md:h-auto md:max-h-[80vh] bg-white rounded-none md:rounded-2xl overflow-hidden shadow-2xl relative flex flex-col">
+                        <InCallHistory
+                            onClose={() => setShowHistoryModal(false)}
+                        // We aren't passing patientId here yet because we need to fetch it from the appointment data
+                        // Ideally, VideoCall state should store `currentAppointment` data to pass `patient_id`
                         />
                     </div>
                 </div>

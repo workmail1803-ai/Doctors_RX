@@ -12,6 +12,7 @@ import Settings from './pages/Settings'
 import PatientDashboard from './pages/patient/PatientDashboard'
 import AssistantDashboard from './pages/assistant/AssistantDashboard'
 import DoctorVideoDashboard from './pages/doctor/DoctorVideoDashboard'
+import DoctorReports from './pages/doctor/DoctorReports'
 import VideoCall from './pages/VideoCall'
 
 const ProtectedRoute = ({ allowedRole }: { allowedRole?: 'doctor' | 'assistant' | 'patient' }) => {
@@ -65,6 +66,7 @@ function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/migrate" element={<AdminMigration />} />
               <Route path="/video-call" element={<DoctorVideoDashboard />} />
+              <Route path="/reports" element={<DoctorReports />} />
             </Route>
           </Route>
 

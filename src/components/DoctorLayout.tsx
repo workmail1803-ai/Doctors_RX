@@ -12,6 +12,7 @@ export default function DoctorLayout() {
     const navItems = [
         { to: '/write', label: 'Write Prescription', icon: FilePenLine },
         { to: '/history', label: 'History', icon: FileClock },
+        { to: '/reports', label: 'Reports', icon: FilePenLine }, // Temporarily using FilePenLine or find a better icon
         { to: '/video-call', label: 'Video Call', icon: Video }, // Added Video Call
         { to: '/settings', label: 'Settings', icon: Settings },
     ]

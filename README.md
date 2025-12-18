@@ -14,14 +14,18 @@ A modern, responsive, and efficient prescription management application designed
     -   **Drag-and-Drop Layout Editor**: Customize the position of every element to match your pre-printed slots.
     -   **PWA Support**: Installable as a native-like app on mobile and desktop.
 -   **Video Consultations (Telemedicine)**:
-    -   Integrated video calling with patient queue management.
+    -   **Strict 30-Minute Slots**: Automated timer that expires call links after the appointment time passes.
     -   **Premium Mobile UI**: Draggable Picture-in-Picture (PIP) self-view and tap-to-hide controls for an immersive experience.
+    -   **Secure Access**: Direct URL access is blocked outside valid appointment windows.
+-   **Doctor Profile**:
+    -   **Public Profile**: Doctors can upload avatars and set bio/specialization details.
+    -   **Patient Visibility**: Patients can browse doctor profiles and see who they are booking with.
 -   **Enhanced Prescription Writing**:
     -   **Pediatric Friendly**: Flexible inputs for Age (Y/M/D), Weight, and granular complaint durations.
     -   **Localization**: Built-in Bangla scripts for follow-up instructions and layout text.
     -   **Smart History**: "Re-prescribe" button to clone past prescriptions instantly.
 -   **Patient History**: Searchable archive of all past visits and prescriptions.
--   **Settings**: Manage prescription templates and account settings.
+-   **Settings**: Manage prescription templates (letterheads) and account settings.
 
 ## Tech Stack
 

@@ -275,7 +275,17 @@ const DragMagnifier = ({
                         case 'date_el': content = <div className="font-medium">{new Date(data.created_at).toLocaleDateString()}</div>; break;
                         case 'bp_el': content = data.patient_info?.bp ? <div className="text-sm font-medium">BP: {data.patient_info.bp}</div> : null; break;
                         case 'weight_el': content = data.patient_info?.weight ? <div className="text-sm font-medium">Wt: {data.patient_info.weight} {/^\d+(\.\d+)?$/.test(data.patient_info.weight) ? 'kg' : ''}</div> : null; break;
-                        case 'examination_el': content = data.patient_info?.examination?.length ? <div className="text-sm max-w-[200px]"><strong>O/E:</strong> {data.patient_info.examination.join(', ')}</div> : null; break;
+                        case 'examination_el': content = data.patient_info?.examination?.length ? (
+                            <div className="text-sm max-w-[250px]">
+                                <strong>O/E:</strong>
+                                <ul className="mt-1 space-y-0.5">
+                                    {data.patient_info.examination.map((item, i) => {
+                                        const detail = data.patient_info?.exam_details?.[item]
+                                        return <li key={i}>{item}{detail ? `: ${detail}` : ''}</li>
+                                    })}
+                                </ul>
+                            </div>
+                        ) : null; break;
                         case 'complaints_el': content = data.diseases?.length ? (
                             <div className="max-w-[250px] min-h-[50px]">
                                 <div className="mb-4">
@@ -735,8 +745,18 @@ export default function PrintPrescription() {
 
                                     <Draggable label="Examination" enabled={isEditing} {...getPos('examination_el')} onDrag={(dx, dy) => handleDrag('examination_el', dx, dy)} onTouchMove={handleTouchDragUpdate} onTouchEnd={handleTouchDragEnd}>
                                         {data.patient_info?.examination && data.patient_info.examination.length > 0 && (
-                                            <div className="text-sm max-w-[200px]">
-                                                <strong>O/E:</strong> {data.patient_info.examination.join(', ')}
+                                            <div className="text-sm max-w-[250px]">
+                                                <strong>O/E:</strong>
+                                                <ul className="mt-1 space-y-0.5">
+                                                    {data.patient_info.examination.map((item: string, i: number) => {
+                                                        const detail = (data.patient_info?.exam_details as any)?.[item]
+                                                        return (
+                                                            <li key={i}>
+                                                                {item}{detail ? `: ${detail}` : ''}
+                                                            </li>
+                                                        )
+                                                    })}
+                                                </ul>
                                             </div>
                                         )}
                                     </Draggable>

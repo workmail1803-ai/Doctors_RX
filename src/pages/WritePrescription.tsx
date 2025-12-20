@@ -18,6 +18,7 @@ type FormData = {
     followUpDays: string
     diseases: Disease[]
     examination: string[]
+    examDetails: { [key: string]: string }
     provisionalDiagnosis: string
     meds: Medicine[]
     tests: Test[]
@@ -29,10 +30,11 @@ type FormData = {
     historyVisibility: { [key in keyof History]: boolean }
 }
 
+// Examination options - all show text input when checked
 const EXAM_OPTIONS = [
     'Anemia', 'Jaundice', 'Lymph Node', 'Heart', 'Lungs', 'Liver', 'Spleen',
     'Abdomen', 'Skin', 'Eyes', 'Hydration', 'Oedema', 'Temperature',
-    'Respiratory Rate', 'Pallor', 'Cyanosis', 'Clubbing', 'BP', 'Weight'
+    'Respiratory Rate', 'Pallor', 'Cyanosis', 'Clubbing'
 ]
 
 // SectionCard Component (matching next-app design)
@@ -81,6 +83,7 @@ export default function WritePrescription() {
             tests: [],
             advice: [],
             examination: [],
+            examDetails: {},
             bp: '',
             weight: '',
             provisionalDiagnosis: '',
@@ -215,6 +218,81 @@ export default function WritePrescription() {
         setShowPatientSuggestions(false)
     }
 
+    // Protocol Suggestion State
+    const [suggestedProtocol, setSuggestedProtocol] = useState<{
+        match_type: string
+        meds: Medicine[]
+        tests: Test[]
+        advice: string
+        matched_diseases: string[]
+    } | null>(null)
+
+    const watchedDiseases = watch('diseases')
+
+    useEffect(() => {
+        // Debounce search
+        const timer = setTimeout(async () => {
+            const diseaseNames = watchedDiseases
+                .map(d => d.name)
+                .filter(n => n && n.length > 2)
+
+            if (diseaseNames.length === 0) {
+                setSuggestedProtocol(null)
+                return
+            }
+
+            // Don't search if we already have a suggestion for this exact set?
+            // Actually, keep searching to handle updates.
+
+            try {
+                const { data, error } = await supabase.rpc('get_protocol_matches', {
+                    doc_id: user?.id,
+                    query_diseases: diseaseNames
+                })
+
+                if (!error && data && data.length > 0) {
+                    // Parse advice from string to array check
+                    // The RPC returns matching row.
+                    // Mapping to local state
+                    const match = data[0] // take best match
+                    setSuggestedProtocol({
+                        match_type: match.match_type,
+                        meds: match.meds || [],
+                        tests: match.tests || [],
+                        advice: match.advice || '',
+                        matched_diseases: match.matched_diseases || []
+                    })
+                } else {
+                    setSuggestedProtocol(null)
+                }
+            } catch (err) {
+                console.error(err)
+            }
+        }, 800) // 800ms debounce
+        return () => clearTimeout(timer)
+    }, [watchedDiseases, user?.id])
+
+    const applyProtocol = () => {
+        if (!suggestedProtocol) return
+
+        // Confirm if overwriting? Or just append?
+        // Usually protocols replace or user manually edits. 
+        // Let's replace empty fields, append to others? 
+        // Simplest: Replace Meds/Tests/Advice if they are empty, otherwise Append.
+        // Actually, just SetValue is easier.
+
+        setValue('meds', suggestedProtocol.meds)
+        setValue('tests', suggestedProtocol.tests)
+
+        // Parse Advice
+        // The RPC returns a string joined by \n (from legacy or as stored).
+        // Our form uses { text: string }[]
+        const adviceArray = suggestedProtocol.advice.split('\n').filter(Boolean).map(t => ({ text: t }))
+        setValue('advice', adviceArray)
+
+        setSuggestedProtocol(null) // Hide after applying
+    }
+
     const onSubmit = async (data: FormData, shouldPrint = false) => {
         if (!user) return
         setSaving(true)
@@ -229,6 +307,7 @@ export default function WritePrescription() {
                     history: data.history,
                     history_visibility: data.historyVisibility,
                     examination: data.examination,
+                    exam_details: data.examDetails,
                     provisional_diagnosis: data.provisionalDiagnosis,
                     bp: data.bp,
                     weight: data.weight
@@ -241,16 +320,14 @@ export default function WritePrescription() {
             })
                 .select()
                 .single()
-
             if (error) throw error
-
             if (shouldPrint && newRx) {
                 window.location.href = `/print/${newRx.id}`
             } else {
                 alert('Prescription Saved!')
                 reset()
-                // Reset to today
                 setValue('date', new Date().toISOString().split('T')[0])
+                setSuggestedProtocol(null)
             }
         } catch (e: unknown) {
             const err = e as Error
@@ -285,8 +362,8 @@ export default function WritePrescription() {
             {/* Patient Details Card - Always Visible */}
             <div className="bg-white p-4 md:p-6 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm space-y-3 md:space-y-4">
                 <h2 className="text-base md:text-lg font-bold text-slate-800 border-b pb-2">Patient Details</h2>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                    <div className="col-span-2 lg:col-span-2 relative">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                    <div className="col-span-1 sm:col-span-2 lg:col-span-2 relative">
                         <label className="block text-xs md:text-sm font-medium text-slate-700 mb-1">Full Name</label>
                         <div className="relative">
                             <input
@@ -447,6 +524,45 @@ export default function WritePrescription() {
 
             {/* Dynamic Sections */}
             <div className="space-y-4">
+                {/* Protocol Suggestion Alert */}
+                {suggestedProtocol && (
+                    <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
+                        <div className="p-2 bg-teal-100 rounded-full text-teal-600 mt-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" /></svg>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-semibold text-teal-900 mb-1">
+                                Found Protocol for {suggestedProtocol.matched_diseases.join(', ')}
+                            </h3>
+                            <p className="text-sm text-teal-700 mb-3">
+                                Previous treatment: {suggestedProtocol.meds.length} Medicines, {suggestedProtocol.tests.length} Tests.
+                                {suggestedProtocol.meds.length > 0 && (
+                                    <span className="block mt-1 text-xs opacity-75">
+                                        Includes: {suggestedProtocol.meds.slice(0, 3).map(m => m.brand).join(', ')}
+                                        {suggestedProtocol.meds.length > 3 && '...'}
+                                    </span>
+                                )}
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={applyProtocol}
+                                    className="px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                                >
+                                    Apply Treatment
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSuggestedProtocol(null)}
+                                    className="px-3 py-1.5 bg-white border border-teal-200 text-teal-700 text-sm font-medium rounded-lg hover:bg-teal-50 transition-colors"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Diseases Section */}
                 <SectionCard
                     title="Complaints / Diseases"
@@ -466,7 +582,8 @@ export default function WritePrescription() {
                                                 value={value}
                                                 onChange={onChange}
                                                 placeholder="Disease/Symptom"
-                                                table="diseases"
+                                                category="diseases"
+                                                doctorId={user?.id}
                                                 className="w-full h-10 px-3 border border-slate-300 rounded-md"
                                             />
                                         )}
@@ -516,18 +633,39 @@ export default function WritePrescription() {
                         </div>
                         <div>
                             <label className="text-sm font-medium text-slate-700 mb-2 block">Clinical Examination Findings</label>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {EXAM_OPTIONS.map((opt) => (
-                                    <label key={opt} className="flex items-center gap-2 p-2 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            value={opt}
-                                            {...register('examination')}
-                                            className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
-                                        />
-                                        <span className="text-sm">{opt}</span>
-                                    </label>
-                                ))}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {EXAM_OPTIONS.map((opt) => {
+                                    const watchedExam = watch('examination') || []
+                                    const isChecked = watchedExam.includes(opt)
+
+                                    return (
+                                        <div key={opt} className={clsx(
+                                            "p-3 border rounded-lg transition-all",
+                                            isChecked ? "border-teal-400 bg-teal-50" : "border-slate-200 hover:bg-slate-50"
+                                        )}>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    value={opt}
+                                                    {...register('examination')}
+                                                    className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                                                />
+                                                <span className="text-sm font-medium">{opt}</span>
+                                            </label>
+
+                                            {isChecked && (
+                                                <div className="mt-2 pl-6">
+                                                    <input
+                                                        type="text"
+                                                        {...register(`examDetails.${opt}` as any)}
+                                                        placeholder="Enter details..."
+                                                        className="w-full h-8 px-2 text-sm border border-slate-300 rounded focus:ring-teal-500"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </div>
                     </div>
@@ -595,8 +733,18 @@ export default function WritePrescription() {
                                                 label=""
                                                 value={value}
                                                 onChange={onChange}
+                                                onSelect={(_, item) => {
+                                                    if (item?.payload) {
+                                                        const p = item.payload
+                                                        if (p.dosage) setValue(`meds.${index}.dosage`, p.dosage)
+                                                        if (p.freq) setValue(`meds.${index}.freq`, p.freq)
+                                                        if (p.duration) setValue(`meds.${index}.duration`, p.duration)
+                                                    }
+                                                }}
                                                 placeholder="Brand Name"
                                                 table="medicines"
+                                                category="medicines"
+                                                doctorId={user?.id}
                                                 className="w-full h-10 md:h-11 px-3 border border-slate-300 rounded-lg text-sm md:text-base"
                                             />
                                         )}
@@ -656,10 +804,20 @@ export default function WritePrescription() {
                     <div className="space-y-3">
                         {adviceFields.map((field, index) => (
                             <div key={field.id} className="flex gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-200">
-                                <input
-                                    {...register(`advice.${index}.text`)}
-                                    className="w-full h-10 px-3 border border-slate-300 rounded-md"
-                                    placeholder="Advice"
+                                <Controller
+                                    control={control}
+                                    name={`advice.${index}.text`}
+                                    render={({ field: { onChange, value } }) => (
+                                        <SmartInput
+                                            label=""
+                                            value={value}
+                                            onChange={onChange}
+                                            placeholder="Advice"
+                                            category="advice"
+                                            doctorId={user?.id}
+                                            className="w-full h-10 px-3 border border-slate-300 rounded-md"
+                                        />
+                                    )}
                                 />
                                 <button type="button" onClick={() => removeAdvice(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md">
                                     <Trash2 size={18} />
@@ -683,10 +841,20 @@ export default function WritePrescription() {
                             <div key={field.id} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-slate-50 p-3 sm:p-2 rounded-lg border border-slate-200 sm:border-none">
                                 <div className="flex-1 w-full">
                                     <label className="text-xs font-medium text-slate-600 sm:hidden mb-1 block">Test Name</label>
-                                    <input
-                                        {...register(`tests.${index}.name`)}
-                                        className="w-full h-10 px-3 border border-slate-300 rounded-md"
-                                        placeholder="Test Name"
+                                    <Controller
+                                        control={control}
+                                        name={`tests.${index}.name`}
+                                        render={({ field: { onChange, value } }) => (
+                                            <SmartInput
+                                                label=""
+                                                value={value}
+                                                onChange={onChange}
+                                                placeholder="Test Name"
+                                                category="tests"
+                                                doctorId={user?.id}
+                                                className="w-full h-10 px-3 border border-slate-300 rounded-md"
+                                            />
+                                        )}
                                     />
                                 </div>
                                 <div className="flex-1 w-full">

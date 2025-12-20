@@ -8,21 +8,22 @@ type Suggestion = {
     label: string
     subtext?: string
     value: string
+    payload?: any
 }
 
 type Props = {
     label: string
     value: string
     onChange: (value: string) => void
-    onSelect?: (value: string) => void
+    onSelect?: (value: string, item?: Suggestion) => void
     placeholder?: string
-    table?: 'medicines' | 'diseases' // simplified for now
-    rpcName?: string
-    rpcParams?: (searchTerm: string) => Record<string, any>
+    table?: 'medicines' | 'diseases'
+    category?: 'medicines' | 'diseases' | 'tests' | 'advice' // For history-based suggestions
+    doctorId?: string
     className?: string
 }
 
-export function SmartInput({ label, value, onChange, onSelect, placeholder, table, rpcName, rpcParams, className }: Props) {
+export function SmartInput({ label, value, onChange, onSelect, placeholder, table, category, doctorId, className }: Props) {
     const [suggestions, setSuggestions] = useState<Suggestion[]>([])
     const [loading, setLoading] = useState(false)
     const [show, setShow] = useState(false)
@@ -47,46 +48,115 @@ export function SmartInput({ label, value, onChange, onSelect, placeholder, tabl
 
             setLoading(true)
             try {
-                let data: any[] = []
+                let data: Suggestion[] = []
+                const lowerVal = value.toLowerCase()
 
+                // 1. LOCAL MEDICINE DATA (Always fast, no DB call)
                 if (table === 'medicines') {
-                    // Local Search Mode using meds.ts (FAST & RELIABLE)
-                    const lowerVal = value.toLowerCase()
                     const filtered = MEDS_DATA
                         .filter(m => m.brand.toLowerCase().startsWith(lowerVal))
-                        .slice(0, 50) // Increased limit since it's local and fast
+                        .slice(0, 30)
 
                     data = filtered.map(d => ({
                         label: d.brand,
                         subtext: d.form,
-                        value: d.brand
-                    }))
-
-                } else if (rpcName) {
-                    // RPC Mode (Smart Suggestions)
-                    const { data: rpcData, error } = await supabase.rpc(rpcName, rpcParams ? rpcParams(value) : {})
-                    if (!error && rpcData) data = rpcData.map((d: any) => ({
-                        label: d.brand,
-                        subtext: d.form + (d.usage_count ? ` (${d.usage_count} uses)` : ''),
-                        value: d.brand
-                    }))
-                } else if (table) {
-                    // Generic Table Search via Supabase (Fallback for diseases etc)
-                    const { data: tableData, error } = await supabase
-                        .from(table)
-                        .select('*') // Select all to be safe, filter in map if needed
-                        .ilike('name', `${value}%`) // Assuming 'name' column for other tables
-                        .limit(10)
-
-                    if (!error && tableData) data = tableData.map(d => ({
-                        label: d.name || d.brand, // Fallback for various table structures
-                        subtext: d.form || '',
-                        value: d.name || d.brand
+                        value: d.brand,
+                        payload: { form: d.form }
                     }))
                 }
 
-                setSuggestions(data)
-                if (data.length > 0) setShow(true)
+                // 2. HISTORY-BASED SUGGESTIONS (Direct query, no RPC)
+                if (category && doctorId) {
+                    // Map category to actual column name
+                    const columnMap: Record<string, string> = {
+                        'medicines': 'meds',
+                        'diseases': 'diseases',
+                        'tests': 'tests',
+                        'advice': 'advice'
+                    }
+                    const column = columnMap[category] || category
+
+                    const { data: prescriptions, error } = await supabase
+                        .from('prescriptions')
+                        .select(column)
+                        .eq('doctor_id', doctorId)
+                        .order('created_at', { ascending: false })
+                        .limit(50)
+
+                    if (!error && prescriptions) {
+                        const historyItems: Suggestion[] = []
+                        const seen = new Set<string>()
+
+                        prescriptions.forEach((rx: any) => {
+                            if (category === 'medicines' && rx.meds) {
+                                // Handle JSONB array of medicines
+                                const meds = Array.isArray(rx.meds) ? rx.meds : []
+                                meds.forEach((m: any) => {
+                                    const brand = m.brand || ''
+                                    if (brand.toLowerCase().startsWith(lowerVal) && !seen.has(brand.toLowerCase())) {
+                                        seen.add(brand.toLowerCase())
+                                        historyItems.push({
+                                            label: brand,
+                                            subtext: `${m.dosage || ''} - ${m.freq || ''} (history)`,
+                                            value: brand,
+                                            payload: { dosage: m.dosage, freq: m.freq, duration: m.duration }
+                                        })
+                                    }
+                                })
+                            } else if (category === 'diseases' && rx.diseases) {
+                                const diseases = Array.isArray(rx.diseases) ? rx.diseases : []
+                                diseases.forEach((d: any) => {
+                                    const name = d.name || ''
+                                    if (name.toLowerCase().startsWith(lowerVal) && !seen.has(name.toLowerCase())) {
+                                        seen.add(name.toLowerCase())
+                                        historyItems.push({
+                                            label: name,
+                                            subtext: 'Previously used',
+                                            value: name
+                                        })
+                                    }
+                                })
+                            } else if (category === 'tests' && rx.tests) {
+                                const tests = Array.isArray(rx.tests) ? rx.tests : []
+                                tests.forEach((t: any) => {
+                                    const name = t.name || ''
+                                    if (name.toLowerCase().startsWith(lowerVal) && !seen.has(name.toLowerCase())) {
+                                        seen.add(name.toLowerCase())
+                                        historyItems.push({
+                                            label: name,
+                                            subtext: t.notes || 'Previously used',
+                                            value: name
+                                        })
+                                    }
+                                })
+                            } else if (category === 'advice' && rx.advice) {
+                                const adviceLines = (rx.advice || '').split('\n').map((s: string) => s.trim()).filter(Boolean)
+                                adviceLines.forEach((line: string) => {
+                                    if (line.toLowerCase().startsWith(lowerVal) && !seen.has(line.toLowerCase())) {
+                                        seen.add(line.toLowerCase())
+                                        historyItems.push({
+                                            label: line,
+                                            subtext: 'Previously used',
+                                            value: line
+                                        })
+                                    }
+                                })
+                            }
+                        })
+
+                        // History items first, then local data
+                        data = [...historyItems.slice(0, 15), ...data]
+                    }
+                }
+
+                // Deduplicate by value
+                const uniqueData = data.reduce((acc: Suggestion[], current) => {
+                    const exists = acc.find(item => item.value.toLowerCase() === current.value.toLowerCase())
+                    return exists ? acc : [...acc, current]
+                }, [])
+
+                setSuggestions(uniqueData.slice(0, 20))
+                if (uniqueData.length > 0) setShow(true)
             } catch (err) {
                 console.error('Suggestion fetch error', err)
             } finally {
@@ -94,10 +164,9 @@ export function SmartInput({ label, value, onChange, onSelect, placeholder, tabl
             }
         }
 
-        // Debounce (shorter delay for local data)
         const timer = setTimeout(fetchSuggestions, table === 'medicines' ? 100 : 300)
         return () => clearTimeout(timer)
-    }, [value, table, rpcName])
+    }, [value, table, category, doctorId])
 
     return (
         <div className="relative w-full" ref={wrapperRef}>
@@ -106,7 +175,7 @@ export function SmartInput({ label, value, onChange, onSelect, placeholder, tabl
                 <input
                     type="text"
                     className={clsx(
-                        "w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-100 focus:border-slate-800 outline-none transition-all pr-10", // Added pr-10 for icon space
+                        "w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-100 focus:border-slate-800 outline-none transition-all pr-10",
                         className
                     )}
                     placeholder={placeholder}
@@ -134,7 +203,7 @@ export function SmartInput({ label, value, onChange, onSelect, placeholder, tabl
                             className="w-full text-left px-4 py-2 hover:bg-slate-50 transition-colors flex flex-col"
                             onClick={() => {
                                 onChange(s.value)
-                                onSelect?.(s.value)
+                                onSelect?.(s.value, s)
                                 setShow(false)
                             }}
                             type="button"

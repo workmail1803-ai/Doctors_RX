@@ -36,6 +36,7 @@ export interface PatientInfo {
     history?: History;
     history_visibility?: { [key in keyof History]?: boolean };
     examination?: string[];
+    exam_details?: { [key: string]: string };
     provisional_diagnosis?: string;
     bp?: string;
     weight?: string;

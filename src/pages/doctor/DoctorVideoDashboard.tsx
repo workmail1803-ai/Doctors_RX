@@ -56,7 +56,7 @@ export default function DoctorVideoDashboard() {
                 ) : (
                     <div className="divide-y divide-slate-100">
                         {appointments.map(app => (
-                            <div key={app.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                            <div key={app.id} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center text-teal-600">
                                         <User size={24} />
@@ -91,7 +91,7 @@ export default function DoctorVideoDashboard() {
                                 {app.status === 'approved' ? (
                                     (() => {
                                         if (!app.scheduled_at) return (
-                                            <Link to={`/video-call/${app.id}`} className="px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2">
+                                            <Link to={`/video-call/${app.id}`} className="w-full md:w-auto justify-center px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2">
                                                 <Video size={18} /> Join Call (Anytime)
                                             </Link>
                                         )
@@ -106,7 +106,7 @@ export default function DoctorVideoDashboard() {
 
                                         if (isExpired) {
                                             return (
-                                                <button disabled className="px-6 py-2.5 bg-red-50 text-red-400 border border-red-100 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
+                                                <button disabled className="w-full md:w-auto justify-center px-6 py-2.5 bg-red-50 text-red-400 border border-red-100 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
                                                     <Video size={18} /> Call Expired
                                                 </button>
                                             )
@@ -114,7 +114,7 @@ export default function DoctorVideoDashboard() {
 
                                         if (isTooEarly) {
                                             return (
-                                                <button disabled className="px-6 py-2.5 bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
+                                                <button disabled className="w-full md:w-auto justify-center px-6 py-2.5 bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
                                                     <Clock size={18} /> Wait for time
                                                 </button>
                                             )
@@ -123,7 +123,7 @@ export default function DoctorVideoDashboard() {
                                         return (
                                             <Link
                                                 to={`/video-call/${app.id}`}
-                                                className="px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2 animate-pulse"
+                                                className="w-full md:w-auto justify-center px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2 animate-pulse"
                                             >
                                                 <Video size={18} />
                                                 Join Call
@@ -131,7 +131,7 @@ export default function DoctorVideoDashboard() {
                                         )
                                     })()
                                 ) : (
-                                    <button disabled className="px-6 py-2.5 bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
+                                    <button disabled className="w-full md:w-auto justify-center px-6 py-2.5 bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed font-medium flex items-center gap-2">
                                         <Video size={18} />
                                         Join Call
                                     </button>

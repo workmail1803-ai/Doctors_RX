@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { MEDS_DATA } from '../data/meds'
 import { Loader2 } from 'lucide-react'
+import { VoiceInput } from './VoiceInput'
 import clsx from 'clsx'
 
 type Suggestion = {
@@ -175,7 +176,7 @@ export function SmartInput({ label, value, onChange, onSelect, placeholder, tabl
                 <input
                     type="text"
                     className={clsx(
-                        "w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-100 focus:border-slate-800 outline-none transition-all pr-10",
+                        "w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-100 focus:border-slate-800 outline-none transition-all pr-20",
                         className
                     )}
                     placeholder={placeholder}
@@ -191,6 +192,14 @@ export function SmartInput({ label, value, onChange, onSelect, placeholder, tabl
                 {loading && (
                     <div className="absolute right-3 top-2.5">
                         <Loader2 className="animate-spin text-slate-400" size={16} />
+                    </div>
+                )}
+                {!loading && (
+                    <div className="absolute right-2 top-2">
+                        <VoiceInput onResult={(text) => {
+                            const newVal = value ? `${value} ${text}` : text
+                            onChange(newVal)
+                        }} />
                     </div>
                 )}
             </div>

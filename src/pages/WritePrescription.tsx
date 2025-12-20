@@ -37,6 +37,74 @@ const EXAM_OPTIONS = [
     'Respiratory Rate', 'Pallor', 'Cyanosis', 'Clubbing'
 ]
 
+const EXAMINATION_DATA: Record<string, { [key: string]: string[] }> = {
+    'Anemia': {
+        'Severity': ['Mild', 'Moderate', 'Severe'],
+        'Clinical Type': ['Iron Deficiency', 'Thalassemia', 'Megaloblastic', 'Hemolytic', 'Aplastic']
+    },
+    'Jaundice': {
+        'Severity': ['Mild', 'Moderate', 'Deep/Severe'],
+        'Cause': ['Pre-hepatic', 'Hepatic', 'Post-hepatic']
+    },
+    'Lymph Node': {
+        'Location': ['Cervical', 'Axillary', 'Inguinal', 'Supraclavicular'],
+        'Consistency': ['Soft', 'Rubber', 'Hard/Matted']
+    },
+    'Heart': {
+        'Sounds': ['S1', 'S2', 'S3', 'S4', 'Murmur'],
+        'Murmurs': ['Systolic Murmur', 'Diastolic Murmur'],
+        'Rhythm': ['Regular', 'Irregular (AF)']
+    },
+    'Lungs': {
+        'Breath Sounds': ['Vesicular', 'Bronchial'],
+        'Added Sounds': ['Wheeze', 'Crepitations', 'Rhonchi', 'Pleural Rub']
+    },
+    'Liver': {
+        'Size': ['Just palpable', '1 finger', '2 finger', '3 finger'],
+        'Consistency': ['Soft', 'Firm', 'Hard', 'Nodular'],
+        'Tenderness': ['Tender', 'Non-tender']
+    },
+    'Spleen': {
+        'Size': ['Mild', 'Moderate', 'Massive', 'Palpable tip']
+    },
+    'Abdomen': {
+        'Distension': ['Gas', 'Fluid (Ascites)', 'Fetus', 'Fat', 'Tumor'],
+        'Tenderness': ['Generalized', 'Localized', 'Non-tender'],
+        'Ascites': ['Mild', 'Moderate', 'Tense']
+    },
+    'Skin': {
+        'Lesions': ['Macule', 'Papule', 'Vesicle', 'Pustule'],
+        'Conditions': ['Scabies', 'Ringworm', 'Eczema', 'Psoriasis'],
+        'Turgor': ['Reduced']
+    },
+    'Eyes': {
+        'Pupils': ['Dilated', 'Constricted', 'Reactive to light'],
+        'Sclera': ['Icteric', 'Muddy'],
+        'Conjunctiva': ['Pale', 'Congested']
+    },
+    'Hydration': {
+        'Status': ['Well hydrated', 'Some dehydration', 'Severe dehydration']
+    },
+    'Oedema': {
+        'Type': ['Pitting', 'Non-pitting'],
+        'Location': ['Pedal', 'Sacral', 'Anasarca']
+    },
+    'Temperature': {
+        'Type': ['Febrile', 'Hypothermia'],
+        'Grade': ['Low grade', 'High grade'],
+        'Pattern': ['Continuous', 'Intermittent', 'Remittent']
+    },
+    'Respiratory Rate': {
+        'Status': ['Normal', 'Tachypnea', 'Bradypnea']
+    },
+    'Cyanosis': {
+        'Type': ['Central', 'Peripheral']
+    },
+    'Clubbing': {
+        'Grade': ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4']
+    }
+}
+
 // SectionCard Component (matching next-app design)
 function SectionCard({ title, children, isOpen, onToggle }: { title: string, children: React.ReactNode, isOpen: boolean, onToggle: () => void }) {
     return (
@@ -661,6 +729,32 @@ export default function WritePrescription() {
                                                         placeholder="Enter details..."
                                                         className="w-full h-8 px-2 text-sm border border-slate-300 rounded focus:ring-teal-500"
                                                     />
+                                                </div>
+                                            )}
+
+                                            {isChecked && EXAMINATION_DATA[opt] && (
+                                                <div className="mt-2 pl-6 flex flex-wrap gap-2">
+                                                    {Object.entries(EXAMINATION_DATA[opt]).map(([subCat, subOpts]) => (
+                                                        <div key={subCat} className="flex items-center gap-1">
+                                                            <span className="text-[10px] uppercase font-bold text-slate-400">{subCat}:</span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {subOpts.map(so => (
+                                                                    <button
+                                                                        key={so}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const current = watch(`examDetails.${opt}`) || ''
+                                                                            const newVal = current ? `${current}, ${so}` : so
+                                                                            setValue(`examDetails.${opt}`, newVal)
+                                                                        }}
+                                                                        className="px-2 py-0.5 text-xs bg-white border border-slate-200 rounded hover:border-teal-400 hover:text-teal-600 transition-colors"
+                                                                    >
+                                                                        {so}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>

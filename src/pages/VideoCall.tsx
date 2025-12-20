@@ -286,7 +286,8 @@ export default function VideoCall() {
 
     // UI States
     const [controlsVisible, setControlsVisible] = useState(true)
-    const [pipPosition, setPipPosition] = useState({ x: 20, y: 100 }) // Initial position (right-agnostic logic happens in CSS or calc)
+    // Initial position: Bottom right (calc based on window)
+    const [pipPosition, setPipPosition] = useState({ x: window.innerWidth - 140, y: window.innerHeight - 200 })
     const dragStartRef = useRef<{ x: number, y: number } | null>(null)
 
     const handlePipDragStart = (e: React.TouchEvent | React.MouseEvent) => {
@@ -307,9 +308,18 @@ export default function VideoCall() {
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
         const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
 
+        const newX = clientX - dragStartRef.current.x
+        const newY = clientY - dragStartRef.current.y
+
+        // Bounds (Simple clamping)
+        // Assuming PIP width ~128px (w-32) or 192px (w-48) and height varies
+        // We permit some edge hang, but not total disappearance
+        const maxX = window.innerWidth - 50
+        const maxY = window.innerHeight - 50
+
         setPipPosition({
-            x: clientX - dragStartRef.current.x,
-            y: clientY - dragStartRef.current.y
+            x: Math.min(Math.max(0, newX), maxX),
+            y: Math.min(Math.max(0, newY), maxY)
         })
     }
 
@@ -325,7 +335,7 @@ export default function VideoCall() {
 
     return (
         <div
-            className="flex flex-col h-[calc(100vh-64px)] w-full bg-black relative overflow-hidden"
+            className="fixed inset-0 w-full h-[100dvh] bg-black z-[100] overflow-hidden touch-none"
             onClick={handleScreenTap}
         >
 
@@ -352,6 +362,7 @@ export default function VideoCall() {
             {/* Top Bar - Floating */}
             <div
                 className={`absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start pointer-events-none transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
+                style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
             >
                 {/* Status Badge */}
                 <div className="pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2">
@@ -463,6 +474,7 @@ export default function VideoCall() {
             {/* Bottom Controls - Floating Pill */}
             <div
                 className={`absolute bottom-6 left-0 right-0 z-30 flex justify-center pointer-events-none transition-all duration-300 ${controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="pointer-events-auto flex items-center gap-4 md:gap-6 bg-slate-900/80 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-full shadow-2xl">

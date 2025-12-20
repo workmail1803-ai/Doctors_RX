@@ -149,6 +149,23 @@ function PrescriptionBody({ data }: { data: Prescription }) {
                     </div>
                 )}
 
+                {data.patient_info?.examination && data.patient_info.examination.length > 0 && (
+                    <div className="mb-6">
+                        <h4 className="font-bold text-sm uppercase mb-2 text-slate-500">O/E (Examination)</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                            {data.patient_info.examination.map((item, i) => {
+                                const detail = (data.patient_info?.exam_details as any)?.[item]
+                                return (
+                                    <li key={i}>
+                                        <span className="font-medium">{item}</span>
+                                        {detail ? `: ${detail}` : ''}
+                                    </li>
+                                )
+                            })}
+                        </ul>
+                    </div>
+                )}
+
                 {data.tests && data.tests.length > 0 && (
                     <div className="mb-6">
                         <h4 className="font-bold text-sm uppercase mb-2 text-slate-500">Tests</h4>

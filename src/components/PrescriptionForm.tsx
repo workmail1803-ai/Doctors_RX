@@ -3,6 +3,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { Plus, Trash2, Save, Printer, ChevronDown, ChevronUp, FileText, Loader2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { SmartInput } from './SmartInput'
+import { VoiceTextarea } from './VoiceTextarea'
 import { useAuth } from './AuthProvider'
 import clsx from 'clsx'
 
@@ -269,7 +270,7 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                                 <input
                                     {...register('patientName', { required: true })}
                                     onChange={(e) => handlePatientSearch(e.target.value)}
-                                    className="w-full h-10 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm"
+                                    className="w-full h-10 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-base md:text-sm"
                                     placeholder="Patient Name"
                                     autoComplete="off"
                                 />
@@ -305,7 +306,7 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                             <label className="block text-xs font-medium text-slate-700 mb-1">Age</label>
                             <input
                                 {...register('age')}
-                                className="w-full h-10 px-3 border border-slate-300 rounded-lg text-sm"
+                                className="w-full h-10 px-3 border border-slate-300 rounded-lg text-base md:text-sm"
                                 placeholder="Age"
                             />
                         </div>
@@ -313,7 +314,7 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                             <label className="block text-xs font-medium text-slate-700 mb-1">Sex</label>
                             <select
                                 {...register('sex')}
-                                className="w-full h-10 px-3 border border-slate-300 rounded-lg bg-white text-sm"
+                                className="w-full h-10 px-3 border border-slate-300 rounded-lg bg-white text-base md:text-sm"
                             >
                                 <option value="Male">Male</option>
                                 <option value="Female">Female</option>
@@ -323,9 +324,29 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                     </div>
                 </div>
 
+                {/* Diagnosis Section */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Provisional Diagnosis / সম্ভাব্য রোগ</label>
+                    <Controller
+                        control={control}
+                        name="provisionalDiagnosis"
+                        render={({ field: { onChange, value } }) => (
+                            <SmartInput
+                                label=""
+                                value={value}
+                                onChange={onChange}
+                                placeholder="Enter Diagnosis / রোগ লিখুন"
+                                category="diseases"
+                                doctorId={user?.id}
+                                className="w-full h-10 px-3 border border-slate-300 rounded-lg text-base md:text-sm"
+                            />
+                        )}
+                    />
+                </div>
+
                 {/* Collapsible Sections */}
 
-                <SectionCard title="Complaints" isOpen={activeSection === 'diseases'} onToggle={() => setActiveSection(activeSection === 'diseases' ? '' : 'diseases')}>
+                <SectionCard title="Complaints / সমস্যা" isOpen={activeSection === 'diseases'} onToggle={() => setActiveSection(activeSection === 'diseases' ? '' : 'diseases')}>
                     <div className="space-y-3">
                         {diseaseFields.map((field, index) => (
                             <div key={field.id} className="flex gap-2 items-center">
@@ -340,14 +361,14 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                                                 onChange={onChange}
                                                 placeholder="Complaint"
                                                 table="diseases"
-                                                className="w-full h-10 px-3 border border-slate-300 rounded-md text-sm"
+                                                className="w-full h-10 px-3 border border-slate-300 rounded-md text-base md:text-sm"
                                             />
                                         )}
                                     />
                                 </div>
                                 <input
                                     {...register(`diseases.${index}.days`)}
-                                    className="w-20 h-10 px-3 border border-slate-300 rounded-md text-sm"
+                                    className="w-20 h-10 px-3 border border-slate-300 rounded-md text-base md:text-sm"
                                     placeholder="Days"
                                 />
                                 <button type="button" onClick={() => removeDisease(index)} className="p-2 text-red-500 bg-red-50 rounded-md">
@@ -361,18 +382,26 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                     </div>
                 </SectionCard>
 
-                <SectionCard title="History" isOpen={activeSection === 'history'} onToggle={() => setActiveSection(activeSection === 'history' ? '' : 'history')}>
-                    <textarea
-                        {...register('history.pastIllness')}
-                        className="w-full h-20 p-3 border border-slate-300 rounded-lg text-sm"
-                        placeholder="Past Illness / History..."
+                <SectionCard title="History / ইতিহাস" isOpen={activeSection === 'history'} onToggle={() => setActiveSection(activeSection === 'history' ? '' : 'history')}>
+                    <Controller
+                        control={control}
+                        name="history.pastIllness"
+                        render={({ field: { onChange, value } }) => (
+                            <VoiceTextarea
+                                value={value}
+                                onChange={onChange} // Standard onChange works now as VoiceTextarea handles events
+                                setValue={(val) => setValue('history.pastIllness', val)} // Direct set value for voice result
+                                className="w-full h-20 p-3 border border-slate-300 rounded-lg text-base md:text-sm"
+                                placeholder="Past Illness, History / অতীত ইতিহাস..."
+                            />
+                        )}
                     />
                 </SectionCard>
 
-                <SectionCard title="Vitals & Exam" isOpen={activeSection === 'exam'} onToggle={() => setActiveSection(activeSection === 'exam' ? '' : 'exam')}>
+                <SectionCard title="Vitals & Exam / শারীরিক পরীক্ষা" isOpen={activeSection === 'exam'} onToggle={() => setActiveSection(activeSection === 'exam' ? '' : 'exam')}>
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                        <input {...register('bp')} placeholder="BP (120/80)" className="h-10 px-3 border border-slate-300 rounded-lg text-sm" />
-                        <input {...register('weight')} placeholder="Weight (kg)" className="h-10 px-3 border border-slate-300 rounded-lg text-sm" />
+                        <input {...register('bp')} placeholder="BP (120/80)" className="h-10 px-3 border border-slate-300 rounded-lg text-base md:text-sm" />
+                        <input {...register('weight')} placeholder="Weight (kg)" className="h-10 px-3 border border-slate-300 rounded-lg text-base md:text-sm" />
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {EXAM_OPTIONS.slice(0, 8).map(opt => (
@@ -383,7 +412,7 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                     </div>
                 </SectionCard>
 
-                <SectionCard title="Medicines" isOpen={activeSection === 'treatment'} onToggle={() => setActiveSection(activeSection === 'treatment' ? '' : 'treatment')}>
+                <SectionCard title="Medicines / ঔষধ" isOpen={activeSection === 'treatment'} onToggle={() => setActiveSection(activeSection === 'treatment' ? '' : 'treatment')}>
                     <div className="space-y-3">
                         {medFields.map((field, index) => (
                             <div key={field.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
@@ -391,13 +420,13 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                                     control={control}
                                     name={`meds.${index}.brand`}
                                     render={({ field: { onChange, value } }) => (
-                                        <SmartInput label="" value={value} onChange={onChange} placeholder="Medicine Name" table="medicines" className="w-full h-10 px-3 border border-slate-300 rounded-md text-sm font-medium" />
+                                        <SmartInput label="" value={value} onChange={onChange} placeholder="Medicine Name / ঔষধের নাম" table="medicines" className="w-full h-10 px-3 border border-slate-300 rounded-md text-base md:text-sm font-medium" />
                                     )}
                                 />
                                 <div className="grid grid-cols-3 gap-2">
-                                    <input {...register(`meds.${index}.dosage`)} placeholder="Dose (500mg)" className="h-9 px-2 border rounded text-sm" />
-                                    <input {...register(`meds.${index}.freq`)} placeholder="Freq (1+0+1)" className="h-9 px-2 border rounded text-sm" />
-                                    <input {...register(`meds.${index}.duration`)} placeholder="Dur (5d)" className="h-9 px-2 border rounded text-sm" />
+                                    <input {...register(`meds.${index}.dosage`)} placeholder="Dose (500mg)" className="h-9 px-2 border rounded text-base md:text-sm" />
+                                    <input {...register(`meds.${index}.freq`)} placeholder="Freq (1+0+1)" className="h-9 px-2 border rounded text-base md:text-sm" />
+                                    <input {...register(`meds.${index}.duration`)} placeholder="Dur (5d)" className="h-9 px-2 border rounded text-base md:text-sm" />
                                 </div>
                                 <button type="button" onClick={() => removeMed(index)} className="w-full py-1 text-red-500 text-xs bg-white border border-red-100 rounded">Remove</button>
                             </div>
@@ -408,11 +437,25 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
                     </div>
                 </SectionCard>
 
-                <SectionCard title="Advice & Tests" isOpen={activeSection === 'advice'} onToggle={() => setActiveSection(activeSection === 'advice' ? '' : 'advice')}>
+                <SectionCard title="Advice & Tests / পরামর্শ ও পরীক্ষা" isOpen={activeSection === 'advice'} onToggle={() => setActiveSection(activeSection === 'advice' ? '' : 'advice')}>
                     <div className="space-y-3">
                         {testFields.map((field, index) => (
                             <div key={field.id} className="flex gap-2">
-                                <input {...register(`tests.${index}.name`)} placeholder="Test Name" className="flex-1 h-9 px-2 border rounded text-sm" />
+                                <Controller
+                                    control={control}
+                                    name={`tests.${index}.name`}
+                                    render={({ field: { onChange, value } }) => (
+                                        <SmartInput
+                                            label=""
+                                            value={value}
+                                            onChange={onChange}
+                                            placeholder="Test Name / পরীক্ষার নাম"
+                                            category="tests"
+                                            doctorId={user?.id}
+                                            className="flex-1 h-9 px-2 border rounded text-base md:text-sm"
+                                        />
+                                    )}
+                                />
                                 <button type="button" onClick={() => removeTest(index)} className="text-red-500"><Trash2 size={16} /></button>
                             </div>
                         ))}
@@ -420,13 +463,31 @@ export default function PrescriptionForm({ initialPatientName = '', onSave, onCa
 
                         {adviceFields.map((field, index) => (
                             <div key={field.id} className="flex gap-2">
-                                <input {...register(`advice.${index}.text`)} placeholder="Advice" className="flex-1 h-9 px-2 border rounded text-sm" />
+                                <input {...register(`advice.${index}.text`)} placeholder="Advice / পরামর্শ" className="flex-1 h-9 px-2 border rounded text-base md:text-sm" />
                                 <button type="button" onClick={() => removeAdvice(index)} className="text-red-500"><Trash2 size={16} /></button>
                             </div>
                         ))}
                         <button type="button" onClick={() => addAdvice({ text: '' })} className="text-teal-600 text-xs font-bold uppercase">+ Add Advice</button>
                     </div>
                 </SectionCard>
+
+                {/* Additional Notes */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Additional Notes / মন্তব্য</label>
+                    <Controller
+                        control={control}
+                        name="notes"
+                        render={({ field: { onChange, value } }) => (
+                            <VoiceTextarea
+                                value={value}
+                                onChange={onChange}
+                                setValue={(val) => setValue('notes', val)}
+                                className="w-full h-20 p-3 border border-slate-300 rounded-lg text-base md:text-sm"
+                                placeholder="Any private notes / মন্তব্য..."
+                            />
+                        )}
+                    />
+                </div>
             </div>
         </div>
     )

@@ -226,6 +226,12 @@ export function AppointmentScheduler({ doctorId, onAttend }: AppointmentSchedule
                                             Walk-in
                                         </span>
                                     )}
+                                    {apt.notes && (
+                                        <div className="mt-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
+                                            <p className="font-semibold text-slate-700 mb-0.5">Notes/Location:</p>
+                                            <p className="whitespace-pre-line">{apt.notes}</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${apt.status === 'confirmed' ? 'bg-green-100 text-green-700' :

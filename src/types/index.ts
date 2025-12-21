@@ -52,7 +52,21 @@ export interface Prescription {
     tests: Test[];
     advice?: string;
     follow_up?: string;
+    status?: 'pending' | 'completed';
     created_at: string;
+}
+
+export interface Profile {
+    id: string;
+    full_name: string;
+    role: 'doctor' | 'assistant' | 'patient';
+    clinic_details?: any;
+    created_at: string;
+}
+
+export interface DoctorAssistant {
+    doctor_id: string;
+    assistant_id: string;
 }
 
 export interface LayoutElement {
@@ -104,8 +118,9 @@ export interface Appointment {
     id: string;
     patient_id: string;
     doctor_id?: string;
-    status: 'pending' | 'approved' | 'rejected' | 'completed';
-    scheduled_at?: string;
-    meeting_link?: string;
+    status: 'pending' | 'confirmed' | 'rejected' | 'completed' | 'cancelled';
+    appointment_time: string;
+    type: 'online' | 'offline';
+    notes?: string;
     created_at: string;
 }

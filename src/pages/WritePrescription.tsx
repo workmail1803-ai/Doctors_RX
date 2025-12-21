@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2, Save, Printer, ChevronDown, ChevronUp, FileText, Loader2, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { SmartInput } from '../components/SmartInput'
@@ -141,6 +142,10 @@ export default function WritePrescription() {
     const [showPatientSuggestions, setShowPatientSuggestions] = useState(false)
     const [searchingPatients, setSearchingPatients] = useState(false)
 
+    // Assistant/Pending State
+    const [searchParams] = useSearchParams()
+    const pendingId = searchParams.get('id')
+
     const { control, register, handleSubmit, watch, setValue, reset } = useForm<FormData>({
         defaultValues: {
             date: new Date().toISOString().split('T')[0],
@@ -225,6 +230,40 @@ export default function WritePrescription() {
         }
     }, [location])
 
+
+
+    // Load Pending Prescription if ID is present
+    useEffect(() => {
+        if (pendingId) {
+            loadPendingPrescription(pendingId)
+        }
+    }, [pendingId])
+
+    async function loadPendingPrescription(id: string) {
+        const { data } = await supabase
+            .from('prescriptions')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        if (data) {
+            // Populate Form
+            setValue('patientName', data.patient_name)
+            if (data.patient_info) {
+                setValue('age', data.patient_info.age || '')
+                setValue('sex', data.patient_info.sex || 'Male')
+                setValue('bp', data.patient_info.bp || '')
+                setValue('weight', data.patient_info.weight || '')
+                setValue('examDetails', data.patient_info.exam_details || {})
+                // If assistant added temp/notes in exam_details, we load them
+
+                // Map exam_details to 'examination' checkboxes if they exist key-wise?
+                // Or just keep them in details. 
+                // Assistant form sets: Temperature, Notes.
+                // We should probably preserve them.
+            }
+        }
+    }
 
     // Auto-search patients debounced
     useEffect(() => {
@@ -365,7 +404,7 @@ export default function WritePrescription() {
         if (!user) return
         setSaving(true)
         try {
-            const { data: newRx, error } = await supabase.from('prescriptions').insert({
+            const payload: any = {
                 doctor_id: user.id,
                 patient_name: data.patientName,
                 patient_info: {
@@ -384,10 +423,29 @@ export default function WritePrescription() {
                 meds: data.meds,
                 tests: data.tests,
                 advice: data.advice.map(item => item.text).join('\n'),
-                created_at: new Date().toISOString()
-            })
-                .select()
-                .single()
+                status: 'completed',
+                created_at: pendingId ? undefined : new Date().toISOString()
+            }
+
+            if (pendingId) delete payload.created_at
+
+            let result
+            if (pendingId) {
+                result = await supabase
+                    .from('prescriptions')
+                    .update(payload)
+                    .eq('id', pendingId)
+                    .select()
+                    .single()
+            } else {
+                result = await supabase
+                    .from('prescriptions')
+                    .insert({ ...payload, created_at: new Date().toISOString() })
+                    .select()
+                    .single()
+            }
+
+            const { data: newRx, error } = result
             if (error) throw error
             if (shouldPrint && newRx) {
                 window.location.href = `/print/${newRx.id}`
@@ -396,6 +454,10 @@ export default function WritePrescription() {
                 reset()
                 setValue('date', new Date().toISOString().split('T')[0])
                 setSuggestedProtocol(null)
+                // If we edited a pending one, maybe go back to dashboard?
+                if (pendingId) {
+                    window.history.back() // or navigate('/dashboard')
+                }
             }
         } catch (e: unknown) {
             const err = e as Error
@@ -404,6 +466,7 @@ export default function WritePrescription() {
             setSaving(false)
         }
     }
+
 
     return (
         <div className="max-w-4xl mx-auto space-y-4 md:space-y-6 pb-20 px-2 md:px-4">

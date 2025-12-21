@@ -66,7 +66,7 @@ export default function Login() {
 
             // Redirect based on role
             if (userId) {
-                if (userRole === 'doctor') navigate('/write') // Or /dashboard
+                if (userRole === 'doctor') navigate('/dashboard')
                 else if (userRole === 'patient') navigate('/patient/dashboard')
                 else if (userRole === 'assistant') navigate('/assistant/dashboard')
                 else navigate('/write') // Fallback

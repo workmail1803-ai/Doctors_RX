@@ -26,6 +26,8 @@ export default function DoctorVideoDashboard() {
                 .from('appointments')
                 .select('*, profiles:patient_id(full_name)')
                 .eq('doctor_id', user?.id)
+                .eq('type', 'online')
+                .in('status', ['confirmed', 'completed']) // Only show confirmed (scheduled) or completed
                 .order('created_at', { ascending: false })
 
             if (data) console.log('Doctor appointments:', data)
@@ -66,7 +68,7 @@ export default function DoctorVideoDashboard() {
                                             <h3 className="font-semibold text-lg text-slate-900">
                                                 {app.profiles?.full_name || 'Patient'}
                                             </h3>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${app.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                            <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${app.status === 'confirmed' ? 'bg-green-100 text-green-700' :
                                                 app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                                                     'bg-slate-100 text-slate-600'
                                                 }`}>
@@ -88,7 +90,7 @@ export default function DoctorVideoDashboard() {
                                     </div>
                                 </div>
 
-                                {app.status === 'approved' ? (
+                                {app.status === 'confirmed' ? (
                                     (() => {
                                         if (!app.scheduled_at) return (
                                             <Link to={`/video-call/${app.id}`} className="w-full md:w-auto justify-center px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2">

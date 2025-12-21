@@ -116,11 +116,21 @@ export default function VideoCall() {
                 setCallActive(true)
                 setStatusText('Connected')
             })
+
+            // IMPORTANT: Handle remote close events
+            incomingCall.on('close', () => {
+                console.log('Call closed by remote')
+                handleCallClose()
+            })
+
+            incomingCall.on('error', (err: any) => {
+                console.error('Incoming call error:', err)
+                handleCallClose()
+            })
+
             setIncomingCall(null)
-        } else {
-            if (incomingCall && !streamReady) console.log('Incoming call waiting for stream...')
         }
-    }, [incomingCall, streamReady]) // Added streamReady dependency
+    }, [incomingCall, streamReady])
 
     // Process Queued Call using new State
     useEffect(() => {
@@ -153,21 +163,29 @@ export default function VideoCall() {
         }
     }
 
+    const [remoteName, setRemoteName] = useState<string>('')
+
     const checkExistingPeer = async () => {
         console.log('Checking for existing peer...')
-        const { data, error } = await supabase.from('appointments').select('*').eq('id', appointmentId).single()
+        const { data, error } = await supabase
+            .from('appointments')
+            .select(`
+                *,
+                patient:patient_id(full_name),
+                doctor:doctor_id(full_name)
+            `)
+            .eq('id', appointmentId)
+            .single()
+
         if (error) console.error('Error checking existing peer:', error)
         if (data) {
             console.log('Initial appointment data loaded:', data)
 
-            // TIMING ENFORCEMENT
             if (data.scheduled_at) {
                 const now = new Date().getTime()
                 const start = new Date(data.scheduled_at).getTime()
                 const slotDuration = 30 * 60 * 1000
                 const end = start + slotDuration
-
-                // Allow 10 min early join
                 const earlyBuffer = 10 * 60 * 1000
 
                 if (now > end) {
@@ -184,6 +202,14 @@ export default function VideoCall() {
             }
 
             handleSignalingUpdate(data)
+
+            if (user?.id === data.doctor_id) {
+                const name = data.patient_name || data.patient?.full_name || 'Patient'
+                setRemoteName(name)
+            } else {
+                const name = data.doctor?.full_name || 'Doctor'
+                setRemoteName(name)
+            }
         }
     }
 
@@ -212,23 +238,13 @@ export default function VideoCall() {
             }
         }
     }
-    /*
-    -- REQUIRED SQL FOR REALTIME SIGNALING --
-    -- Enable Realtime for table
-    alter publication supabase_realtime add table appointments;
-    
-    -- Allow Authenticated participants to update their Peer IDs
-    create policy "Participants update signaling" on appointments
-    for update using (
-      auth.uid() = patient_id or auth.uid() = doctor_id
-    );
-    */
 
-    // ... existing startCall needs access to localStreamRef, which is already in scope 
-    // but the defined startCall function in previous code might be separate. 
-    // We will overwrite/merge.
-
-
+    const handleCallClose = () => {
+        setCallActive(false)
+        currentCall.current = null
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
+        setStatusText('Call Ended - Waiting...')
+    }
 
     const startCall = (remoteId: string) => {
         if (!localStreamRef.current || !peerInstance.current) return
@@ -246,17 +262,51 @@ export default function VideoCall() {
             setStatusText('Connected')
         })
 
+        call.on('close', () => {
+            console.log('Call closed by remote')
+            handleCallClose()
+        })
+
         call.on('error', (err) => {
             console.error('Call error:', err)
             setStatusText('Call Failed')
+            handleCallClose()
         })
     }
 
-    const endCall = () => {
+    const endCall = async () => {
+        // Close call locally
         currentCall.current?.close()
         setCallActive(false)
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = null
+        }
+
+        // Update appointment status based on who ends the call
+        if (appointmentId && user) {
+            try {
+                const { data } = await supabase
+                    .from('appointments')
+                    .select('doctor_id')
+                    .eq('id', appointmentId)
+                    .single()
+
+                const isDoctor = user.id === data?.doctor_id
+
+                if (isDoctor) {
+                    // Doctor ending call → mark as completed (dismisses slot)
+                    console.log('Doctor ending call, marking appointment as completed')
+                    await supabase
+                        .from('appointments')
+                        .update({ status: 'completed' })
+                        .eq('id', appointmentId)
+                } else {
+                    // Patient ending call → keep status 'confirmed' (allows rejoin)
+                    console.log('Patient ending call, keeping appointment active for rejoin')
+                }
+            } catch (error) {
+                console.error('Error updating appointment status:', error)
+            }
         }
     }
 
@@ -369,6 +419,14 @@ export default function VideoCall() {
                     <div className={`w-2 h-2 rounded-full ${callActive ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
                     <span className="text-white text-xs font-medium tracking-wide">
                         {callActive ? 'Live Call' : 'Connecting...'}
+                    </span>
+                </div>
+
+                {/* Remote Name Display */}
+                <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 px-4 py-1.5 rounded-full flex items-center gap-2">
+                    <User size={16} className="text-white/80" />
+                    <span className="text-white text-sm font-semibold tracking-wide shadow-sm">
+                        {remoteName || 'Connecting...'}
                     </span>
                 </div>
 

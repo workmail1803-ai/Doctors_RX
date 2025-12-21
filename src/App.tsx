@@ -16,6 +16,7 @@ import DoctorReports from './pages/doctor/DoctorReports'
 import VideoCall from './pages/VideoCall'
 import History from './pages/History'
 import DoctorProfile from './pages/doctor/DoctorProfile'
+import ManageAssistant from './pages/doctor/ManageAssistant'
 
 const ProtectedRoute = ({ allowedRole }: { allowedRole?: 'doctor' | 'assistant' | 'patient' }) => {
   const { user, role, loading } = useAuth()
@@ -60,7 +61,7 @@ function App() {
           {/* Doctor Routes */}
           <Route element={<ProtectedRoute allowedRole="doctor" />}>
             <Route element={<DoctorLayout />}>
-              <Route path="/" element={<Navigate to="/write" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/write" element={<WritePrescription />} />
               <Route path="/history" element={<History />} />
@@ -70,6 +71,7 @@ function App() {
               <Route path="/video-call" element={<DoctorVideoDashboard />} />
               <Route path="/reports" element={<DoctorReports />} />
               <Route path="/profile" element={<DoctorProfile />} />
+              <Route path="/manage-assistant" element={<ManageAssistant />} />
             </Route>
           </Route>
 

@@ -60,7 +60,9 @@ export default function PatientDashboard() {
             const { error } = await supabase.from('appointments').insert({
                 patient_id: user.id,
                 doctor_id: doctorId,
-                status: 'pending'
+                status: 'pending',
+                patient_name: user.user_metadata?.full_name || user.email || 'Unnamed Patient',
+                type: 'online'
             })
             if (error) throw error
             alert('Appointment requested!')
@@ -122,49 +124,44 @@ export default function PatientDashboard() {
                                     Appointment with {doctors.find(d => d.id === app.doctor_id)?.full_name || 'Doctor'}
                                 </p>
                                 <p className="text-sm text-slate-500">
-                                    Status: <span className={`font-semibold capitalize ${app.status === 'approved' ? 'text-green-600' :
+                                    Status: <span className={`font-semibold capitalize ${app.status === 'confirmed' ? 'text-green-600' :
                                         app.status === 'pending' ? 'text-amber-600' : 'text-red-600'
                                         }`}>{app.status}</span>
                                 </p>
-                                {app.scheduled_at && (
+                                {app.appointment_time && (
                                     <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                                        <Clock size={12} /> {new Date(app.scheduled_at).toLocaleString()}
+                                        <Clock size={12} /> {new Date(app.appointment_time).toLocaleString()}
                                     </p>
                                 )}
                             </div>
-                            {app.status === 'approved' && (
+                            {app.status === 'confirmed' && app.type === 'online' && (
                                 (() => {
                                     // Use currentTime state to ensure updates
-                                    const scheduled = app.scheduled_at ? new Date(app.scheduled_at) : new Date()
+                                    const scheduled = app.appointment_time ? new Date(app.appointment_time) : new Date()
                                     // STRICT: diff > 0 means scheduled is in future.
+                                    // Allow joining 5 minutes early
                                     const diff = scheduled.getTime() - currentTime.getTime()
-
-                                    // If diff is positive, it's too early.
-                                    const isTooEarly = diff > 0
+                                    const isTooEarly = diff > 5 * 60 * 1000 // > 5 mins early
 
                                     // Calculate friendly "wait time" string
                                     const minutesWait = Math.ceil(diff / 60000)
-
-                                    console.log(`App ${app.id}: Scheduled: ${scheduled.toISOString()}, Now: ${currentTime.toISOString()}, isTooEarly: ${isTooEarly}`)
 
                                     // 30 minute slot
                                     const slotDuration = 30 * 60 * 1000
                                     const endTime = new Date(scheduled.getTime() + slotDuration)
                                     const isExpired = currentTime.getTime() > endTime.getTime()
 
-                                    console.log(`App ${app.id}: Ends: ${endTime.toISOString()}, Expired: ${isExpired}`)
-
                                     if (isExpired) {
                                         return (
                                             <button disabled className="px-4 py-2 bg-red-50 text-red-400 text-sm rounded-lg cursor-not-allowed inline-block text-center min-w-[120px] font-medium border border-red-100">
-                                                Call Not Available
+                                                Call Ended
                                             </button>
                                         )
                                     }
 
                                     if (isTooEarly) {
                                         return (
-                                            <button disabled className="px-4 py-2 bg-slate-300 text-slate-500 text-sm rounded-lg cursor-not-allowed inline-block text-center min-w-[120px]">
+                                            <button disabled className="px-4 py-2 bg-slate-100 text-slate-500 text-sm rounded-lg cursor-not-allowed inline-block text-center min-w-[120px] border border-slate-200">
                                                 {minutesWait > 60
                                                     ? `On ${scheduled.toLocaleDateString()}`
                                                     : `Starts in ${minutesWait} min`
@@ -174,8 +171,8 @@ export default function PatientDashboard() {
                                     }
 
                                     return (
-                                        <Link to={`/video-call/${app.id}`} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 shadow-sm shadow-blue-600/20 inline-block text-center animate-pulse">
-                                            Join Call
+                                        <Link to={`/video-call/${app.id}`} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 shadow-sm shadow-blue-600/20 inline-block text-center animate-pulse font-medium">
+                                            Join Video Call
                                         </Link>
                                     )
                                 })()

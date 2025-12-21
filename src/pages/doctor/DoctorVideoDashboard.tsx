@@ -24,11 +24,11 @@ export default function DoctorVideoDashboard() {
         try {
             const { data, error } = await supabase
                 .from('appointments')
-                .select('*, profiles:patient_id(full_name)')
+                .select('*, profiles:profiles!appointments_patient_id_fkey(full_name)')
                 .eq('doctor_id', user?.id)
                 .eq('type', 'online')
                 .in('status', ['confirmed', 'completed']) // Only show confirmed (scheduled) or completed
-                .order('created_at', { ascending: false })
+                .order('appointment_time', { ascending: true }) // Order by scheduled time
 
             if (data) console.log('Doctor appointments:', data)
             if (error) throw error
@@ -66,7 +66,7 @@ export default function DoctorVideoDashboard() {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <h3 className="font-semibold text-lg text-slate-900">
-                                                {app.profiles?.full_name || 'Patient'}
+                                                {app.patient_name || app.profiles?.full_name || 'Unknown Patient'}
                                             </h3>
                                             <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${app.status === 'confirmed' ? 'bg-green-100 text-green-700' :
                                                 app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
@@ -78,12 +78,19 @@ export default function DoctorVideoDashboard() {
                                         <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
                                             <span className="flex items-center gap-1">
                                                 <Calendar size={14} />
-                                                {new Date(app.created_at).toLocaleDateString()}
+                                                {app.appointment_time
+                                                    ? new Date(app.appointment_time).toLocaleDateString()
+                                                    : new Date(app.created_at).toLocaleDateString()}
                                             </span>
-                                            {app.scheduled_at && (
-                                                <span className="flex items-center gap-1">
+                                            {app.appointment_time ? (
+                                                <span className="flex items-center gap-1 font-medium text-teal-700">
                                                     <Clock size={14} />
-                                                    {new Date(app.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(app.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1 italic">
+                                                    <Clock size={14} />
+                                                    Time not set
                                                 </span>
                                             )}
                                         </div>
@@ -92,18 +99,18 @@ export default function DoctorVideoDashboard() {
 
                                 {app.status === 'confirmed' ? (
                                     (() => {
-                                        if (!app.scheduled_at) return (
+                                        // If no time set, allow joining anytime (for testing/walk-in flexibility)
+                                        if (!app.appointment_time) return (
                                             <Link to={`/video-call/${app.id}`} className="w-full md:w-auto justify-center px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-600/20 font-medium transition-all flex items-center gap-2">
                                                 <Video size={18} /> Join Call (Anytime)
                                             </Link>
                                         )
 
-                                        const scheduled = new Date(app.scheduled_at)
+                                        const scheduled = new Date(app.appointment_time)
                                         const endTime = new Date(scheduled.getTime() + 30 * 60 * 1000)
                                         const isExpired = currentTime.getTime() > endTime.getTime()
 
-                                        // Optional: Doctor can verify earlier, but patient cannot? 
-                                        // Usually doctor should be able to join 5 mins early.
+                                        // Doctor can join 5 mins early
                                         const isTooEarly = currentTime.getTime() < (scheduled.getTime() - 5 * 60 * 1000)
 
                                         if (isExpired) {

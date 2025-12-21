@@ -311,7 +311,7 @@ export default function PatientDashboard() {
                                                 <Video size={16} /> Video
                                             </button>
                                             <button
-                                                onClick={() => requestAppointment(doc.id, 'offline')}
+                                                onClick={() => handleChamberClick(doc)}
                                                 className="py-2.5 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium flex items-center justify-center gap-2 text-sm"
                                             >
                                                 <MapPin size={16} /> Chamber
@@ -370,7 +370,7 @@ export default function PatientDashboard() {
                                                                 <Video size={16} />
                                                             </button>
                                                             <button
-                                                                onClick={(e) => { e.stopPropagation(); requestAppointment(doc.id, 'offline') }}
+                                                                onClick={(e) => { e.stopPropagation(); handleChamberClick(doc) }}
                                                                 title="Chamber Visit"
                                                                 className="p-1.5 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
                                                             >

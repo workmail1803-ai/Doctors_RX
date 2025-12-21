@@ -890,7 +890,32 @@ export default function WritePrescription() {
                                         <div className="space-y-1">
                                             {medFields.map((field, index) => (
                                                 <div key={field.id} className={clsx("flex gap-1 items-center", isLayoutEditing ? "bg-white/80 p-1 rounded shadow-sm" : "")}>
-                                                    <input {...register(`meds.${index}.brand`)} placeholder="Brand" className="w-1/3 text-xs border-b border-transparent focus:border-teal-500 outline-none bg-transparent font-medium" />
+                                                    <div className="w-1/3">
+                                                        <Controller
+                                                            control={control}
+                                                            name={`meds.${index}.brand`}
+                                                            render={({ field: { onChange, value } }) => (
+                                                                <SmartInput
+                                                                    label=""
+                                                                    value={value}
+                                                                    onChange={onChange}
+                                                                    onSelect={(_, item) => {
+                                                                        if (item?.payload) {
+                                                                            const p = item.payload
+                                                                            if (p.dosage) setValue(`meds.${index}.dosage`, p.dosage)
+                                                                            if (p.freq) setValue(`meds.${index}.freq`, p.freq)
+                                                                            if (p.duration) setValue(`meds.${index}.duration`, p.duration)
+                                                                        }
+                                                                    }}
+                                                                    placeholder="Brand"
+                                                                    table="medicines"
+                                                                    category="medicines"
+                                                                    doctorId={user?.id}
+                                                                    className="w-full text-xs border-b border-transparent focus:border-teal-500 outline-none bg-transparent font-medium p-0"
+                                                                />
+                                                            )}
+                                                        />
+                                                    </div>
                                                     <input {...register(`meds.${index}.dosage`)} placeholder="Dose" className="w-1/4 text-xs border-b border-transparent focus:border-teal-500 outline-none bg-transparent" />
                                                     <input {...register(`meds.${index}.freq`)} placeholder="Freq" className="w-1/4 text-xs border-b border-transparent focus:border-teal-500 outline-none bg-transparent" />
                                                     <button type="button" onClick={() => removeMed(index)} className={clsx("text-red-400 hover:text-red-600", !isLayoutEditing && "opacity-0 hover:opacity-100")}><Trash2 size={12} /></button>
